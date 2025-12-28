@@ -1,26 +1,34 @@
 import type { APIRoute } from 'astro';
-import Filter from 'bad-words';
+import { Filter } from 'bad-words';
 
 // Use Upstash Redis (works on Netlify, Vercel, and any platform)
 // Falls back to local store in development if not configured
 let redis: any = null;
 
-// Initialize Redis connection
-try {
-  // Try to use Upstash Redis if environment variables are set
-  if (import.meta.env.UPSTASH_REDIS_REST_URL && import.meta.env.UPSTASH_REDIS_REST_TOKEN) {
-    const { Redis } = await import('@upstash/redis');
-    redis = new Redis({
-      url: import.meta.env.UPSTASH_REDIS_REST_URL,
-      token: import.meta.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-  } else if (import.meta.env.KV_REST_API_URL && import.meta.env.KV_REST_API_TOKEN) {
-    // Fallback to Vercel KV if available
-    const { kv } = await import('@vercel/kv');
-    redis = kv;
+// Initialize Redis connection (lazy load to avoid build-time issues)
+async function getRedis() {
+  if (redis) return redis;
+  
+  try {
+    // Try to use Upstash Redis if environment variables are set
+    if (import.meta.env.UPSTASH_REDIS_REST_URL && import.meta.env.UPSTASH_REDIS_REST_TOKEN) {
+      const { Redis } = await import('@upstash/redis');
+      redis = new Redis({
+        url: import.meta.env.UPSTASH_REDIS_REST_URL,
+        token: import.meta.env.UPSTASH_REDIS_REST_TOKEN,
+      });
+      return redis;
+    } else if (import.meta.env.KV_REST_API_URL && import.meta.env.KV_REST_API_TOKEN) {
+      // Fallback to Vercel KV if available
+      const { kv } = await import('@vercel/kv');
+      redis = kv;
+      return redis;
+    }
+  } catch (error) {
+    console.log('Redis not configured, using local store fallback');
   }
-} catch (error) {
-  console.log('Redis not configured, using local store fallback');
+  
+  return null;
 }
 
 // Initialize profanity filter library (keeps bad words out of source code)
@@ -50,12 +58,13 @@ const localStore = new Map<string, number>();
 
 // Helper to get leaderboard (tries Redis, falls back to local store)
 async function getLeaderboard() {
-  if (redis) {
+  const redisClient = await getRedis();
+  if (redisClient) {
     try {
       // Check if it's Upstash Redis (has zrange method with different signature)
-      if (typeof redis.zrange === 'function' && redis.constructor?.name === 'Redis') {
+      if (typeof redisClient.zrange === 'function' && redisClient.constructor?.name === 'Redis') {
         // Upstash Redis API - returns array of [member, score, member, score, ...]
-        const result = await redis.zrange('high_roller_scores', 0, 9, { rev: true, withScores: true });
+        const result = await redisClient.zrange('high_roller_scores', 0, 9, { rev: true, withScores: true });
         const leaderboard = [];
         // Upstash returns as array of alternating member/score pairs
         for (let i = 0; i < result.length; i += 2) {
@@ -64,7 +73,7 @@ async function getLeaderboard() {
         return leaderboard;
       } else {
         // Vercel KV API (legacy support)
-        const result = await redis.zrange('high_roller_scores', 0, 9, { rev: true, withScores: true });
+        const result = await redisClient.zrange('high_roller_scores', 0, 9, { rev: true, withScores: true });
         const leaderboard = [];
         for (let i = 0; i < result.length; i += 2) {
           leaderboard.push({ name: result[i], score: result[i + 1] });
@@ -86,18 +95,19 @@ async function getLeaderboard() {
 
 // Helper to save score (tries Redis, falls back to local store)
 async function saveScore(name: string, score: number) {
-  if (redis) {
+  const redisClient = await getRedis();
+  if (redisClient) {
     try {
       // Check if it's Upstash Redis
-      if (typeof redis.zadd === 'function' && redis.constructor?.name === 'Redis') {
+      if (typeof redisClient.zadd === 'function' && redisClient.constructor?.name === 'Redis') {
         // Upstash Redis API - only update if score is greater
-        const current = await redis.zscore('high_roller_scores', name);
+        const current = await redisClient.zscore('high_roller_scores', name);
         if (current === null || score > Number(current)) {
-          await redis.zadd('high_roller_scores', { score, member: name });
+          await redisClient.zadd('high_roller_scores', { score, member: name });
         }
       } else {
         // Vercel KV API (legacy support)
-        await redis.zadd('high_roller_scores', { score, member: name }, { xx: false, gt: true });
+        await redisClient.zadd('high_roller_scores', { score, member: name }, { xx: false, gt: true });
       }
       return;
     } catch (error) {
