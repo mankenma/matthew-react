@@ -1,0 +1,813 @@
+---
+// High Roller Tycoon - Easter Egg Game Page
+---
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>High Roller Tycoon - Ultimate Edition</title>
+    <script src="https://cdn.tailwindcss.com" is:inline></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Lato:wght@400;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+    <script is:inline>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        felt: {
+                            DEFAULT: '#0f3923',
+                            dark: '#052e16',
+                            light: '#14532d'
+                        },
+                        gold: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                        }
+                    },
+                    fontFamily: {
+                        casino: ['Cinzel', 'serif'],
+                        ui: ['Lato', 'sans-serif'],
+                        mono: ['Roboto Mono', 'monospace'],
+                    },
+                    boxShadow: {
+                        'neon': '0 0 5px theme("colors.gold.400"), 0 0 20px theme("colors.gold.500")',
+                        'felt-inset': 'inset 0 0 100px rgba(0,0,0,0.9)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #052e16;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 60%),
+                repeating-linear-gradient(45deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 4px);
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+
+        .poker-chip {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #dc2626, #991b1b);
+            border: 12px dashed white;
+            box-shadow: 
+                0 10px 0 #7f1d1d,
+                0 20px 20px rgba(0,0,0,0.5);
+            position: relative;
+            transition: transform 0.05s, box-shadow 0.05s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .poker-chip::before {
+            content: '';
+            position: absolute;
+            inset: 15px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: transparent;
+        }
+
+        .poker-chip:active, .poker-chip.active {
+            transform: translateY(10px);
+            box-shadow: 
+                0 0 0 #7f1d1d,
+                0 5px 10px rgba(0,0,0,0.5);
+        }
+
+        .chip-inner {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: #b91c1c;
+            border: 4px solid #fcd34d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        @keyframes float-cash {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-80px) scale(1.2); }
+        }
+
+        @keyframes golden-float {
+            0% { left: -100px; transform: rotate(0deg); }
+            100% { left: 110vw; transform: rotate(360deg); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px #f59e0b; }
+            50% { box-shadow: 0 0 30px #fbbf24; }
+        }
+
+        .floating-text {
+            position: fixed;
+            pointer-events: none;
+            font-family: 'Roboto Mono', monospace;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+            z-index: 50;
+            animation: float-cash 1s ease-out forwards;
+            will-change: transform, opacity;
+        }
+        
+        #floating-text-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 50;
+            overflow: hidden;
+        }
+
+        .golden-cookie {
+            position: absolute;
+            top: 20%;
+            width: 64px;
+            height: 64px;
+            background: radial-gradient(#fbbf24, #d97706);
+            border: 4px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 20px #fbbf24;
+            z-index: 100;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #78350f;
+            animation: golden-float 15s linear;
+        }
+
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #d97706; border-radius: 10px; }
+
+        .modal-overlay {
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen text-slate-100 flex flex-col md:flex-row overflow-hidden relative">
+
+    <canvas id="bg-canvas" class="fixed top-0 left-0 w-full h-full -z-10"></canvas>
+
+    <div id="event-container" class="absolute inset-0 pointer-events-none overflow-hidden z-40"></div>
+    <div id="floating-text-container" class="fixed inset-0 pointer-events-none overflow-hidden z-50" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;"></div>
+
+    <aside class="w-full md:w-1/4 bg-black/40 border-b md:border-b-0 md:border-r border-gold-600/30 p-4 flex flex-col justify-between z-20 backdrop-blur-sm order-2 md:order-1 h-[20vh] md:h-full">
+        <div>
+            <a href="/" class="block mb-4 group">
+                <button class="w-full py-2 px-4 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 font-ui text-sm font-bold">
+                    <i class="fas fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+                    <span>Back to Homepage</span>
+                </button>
+            </a>
+            <h1 class="font-casino text-3xl text-gold-400 text-center mb-1 drop-shadow-md">HIGH ROLLER</h1>
+            <div class="text-center text-xs text-gold-600/70 tracking-[0.3em] font-ui mb-6">TYCOON</div>
+
+            <div class="space-y-4 font-ui">
+                <div class="bg-black/50 p-3 rounded border border-gold-600/20">
+                    <div class="text-xs text-slate-400 uppercase">Prestige Bonus</div>
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-crown text-gold-400"></i>
+                        <span id="prestige-display" class="text-xl font-bold text-white">0</span>
+                        <span class="text-xs text-gold-500">(+<span id="bonus-display">0</span>%)</span>
+                    </div>
+                </div>
+
+                <div class="bg-black/50 p-3 rounded border border-gold-600/20">
+                    <div class="text-xs text-slate-400 uppercase">Time Played</div>
+                    <div id="time-display" class="font-mono text-sm">00:00:00</div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="GAME.showPrestigeModal()" class="group relative w-full py-3 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all overflow-hidden mt-4 md:mt-0">
+            <div class="absolute inset-0 bg-gold-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+            <span class="relative font-bold font-ui text-sm uppercase tracking-wider"><i class="fas fa-sack-dollar mr-2"></i>Cash Out (Prestige)</span>
+        </button>
+    </aside>
+
+    <main class="flex-1 flex flex-col items-center justify-center relative z-20 order-1 md:order-2 h-[50vh] md:h-full">
+        
+        <div class="text-center mb-8 md:mb-16 animate-fade-in-down w-full px-4">
+            <div class="text-gold-500 font-bold text-xs md:text-sm tracking-[0.5em] mb-2 font-ui uppercase opacity-80">Net Worth</div>
+            <div class="relative inline-block">
+                <div class="text-5xl md:text-7xl font-mono font-bold text-white drop-shadow-lg flex items-center justify-center gap-2">
+                    <span class="text-green-500">$</span>
+                    <span id="cash-display">0</span>
+                </div>
+            </div>
+            <div class="mt-2 inline-flex items-center gap-2 bg-black/40 px-4 py-1 rounded-full border border-white/10 backdrop-blur-md">
+                <i class="fas fa-bolt text-gold-400 text-xs animate-pulse"></i>
+                <span id="cps-display" class="font-mono text-green-400 font-bold">0.0</span> <span class="text-xs text-slate-400">/sec</span>
+            </div>
+        </div>
+
+        <div class="relative">
+            <button id="main-clicker" class="poker-chip group" aria-label="Gamble">
+                <div class="chip-inner">
+                    <i class="fas fa-gem text-5xl text-white drop-shadow-md group-hover:scale-110 transition-transform duration-200"></i>
+                </div>
+            </button>
+            <div class="absolute -bottom-12 left-1/2 -translate-x-1/2 text-slate-500/50 text-xs font-mono whitespace-nowrap hidden md:block">
+                SPACE or CLICK
+            </div>
+        </div>
+    </main>
+
+    <aside class="w-full md:w-[400px] bg-black/60 border-t md:border-t-0 md:border-l border-gold-600/30 flex flex-col z-30 backdrop-blur-md order-3 h-[30vh] md:h-full">
+        <div class="flex border-b border-white/10 bg-black/40">
+            <button class="flex-1 py-3 text-sm font-bold text-gold-400 border-b-2 border-gold-500 bg-white/5 font-ui">
+                <i class="fas fa-building mr-2"></i>Assets
+            </button>
+            <button class="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors font-ui" onclick="GAME.toggleSound()">
+                <i id="sound-icon" class="fas fa-volume-up mr-2"></i>Sound
+            </button>
+        </div>
+
+        <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2">
+        </div>
+    </aside>
+
+    <div id="prestige-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-gold-500 rounded-lg max-w-md w-full p-6 shadow-neon relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-gold-500/20 blur-3xl rounded-full pointer-events-none"></div>
+
+            <h2 class="font-casino text-3xl text-white text-center mb-2">CASH OUT?</h2>
+            <p class="text-slate-400 text-center text-sm mb-6 font-ui">Reset your cash and buildings to earn <span class="text-gold-400 font-bold">Reputation Chips</span>.</p>
+
+            <div class="flex justify-between items-center bg-black/50 p-4 rounded mb-6 border border-white/10">
+                <div class="text-center">
+                    <div class="text-xs text-slate-500 uppercase">Current Bonus</div>
+                    <div class="text-red-400 font-mono font-bold text-xl" id="modal-current-bonus">0%</div>
+                </div>
+                <div class="text-2xl text-slate-600"><i class="fas fa-arrow-right"></i></div>
+                <div class="text-center">
+                    <div class="text-xs text-slate-500 uppercase">New Bonus</div>
+                    <div class="text-green-400 font-mono font-bold text-xl" id="modal-new-bonus">0%</div>
+                </div>
+            </div>
+
+            <div class="text-center mb-6">
+                <span class="text-sm text-slate-300">You will gain:</span>
+                <div class="flex items-center justify-center gap-2 mt-1">
+                    <i class="fas fa-crown text-gold-400 text-2xl"></i>
+                    <span id="modal-gain-amount" class="text-3xl font-bold text-white font-mono">0</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('prestige-modal').classList.add('hidden')" class="flex-1 py-3 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-bold transition-colors">Cancel</button>
+                <button onclick="GAME.doPrestige()" class="flex-1 py-3 rounded bg-gradient-to-r from-gold-600 to-gold-500 text-black font-bold hover:brightness-110 shadow-lg transition-all">PRESTIGE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="welcome-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-green-500 rounded-lg max-w-sm w-full p-6 shadow-2xl text-center">
+            <h2 class="font-casino text-2xl text-green-400 mb-2">Welcome Back, Boss!</h2>
+            <p class="text-slate-300 text-sm mb-4">While you were away, your casino operations generated:</p>
+            <div class="text-4xl font-mono text-white font-bold mb-6 text-green-400 drop-shadow-lg">
+                $<span id="offline-earnings">0</span>
+            </div>
+            <button onclick="document.getElementById('welcome-modal').classList.add('hidden')" class="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded">Collect Cash</button>
+        </div>
+    </div>
+
+    <script is:inline>
+        const GAME = {
+            state: {
+                cash: 0,
+                lifetimeCash: 0,
+                prestigeChips: 0,
+                startTime: Date.now(),
+                lastSaveTime: Date.now(),
+                settings: { sound: true },
+                upgrades: {
+                    clicker: {
+                        id: 'clicker', name: 'Loaded Dice', icon: 'fa-dice', baseCost: 15, baseInc: 1, count: 0, type: 'active', desc: '+Click Power'
+                    },
+                    slot: {
+                        id: 'slot', name: 'Slot Machine', icon: 'fa-gamepad', baseCost: 100, baseInc: 5, count: 0, type: 'passive', desc: 'Auto Cash'
+                    },
+                    poker: {
+                        id: 'poker', name: 'Poker Table', icon: 'fa-diamond', baseCost: 1000, baseInc: 45, count: 0, type: 'passive', desc: 'Auto Cash'
+                    },
+                    roulette: {
+                        id: 'roulette', name: 'Roulette', icon: 'fa-circle-notch', baseCost: 12000, baseInc: 250, count: 0, type: 'passive', desc: 'Auto Cash'
+                    },
+                    blackjack: {
+                        id: 'blackjack', name: 'Blackjack Pit', icon: 'fa-clone', baseCost: 150000, baseInc: 1200, count: 0, type: 'passive', desc: 'Auto Cash'
+                    },
+                    hotel: {
+                        id: 'hotel', name: 'Luxury Hotel', icon: 'fa-hotel', baseCost: 2000000, baseInc: 8500, count: 0, type: 'passive', desc: 'Auto Cash'
+                    }
+                }
+            },
+            
+            PRESTIGE_BONUS_PER_CHIP: 0.05,
+            MILESTONE_STEP: 25,
+
+            audioCtx: null,
+
+            init() {
+                this.load();
+                this.setupUI();
+                this.setupAudio();
+                this.setupBackground();
+                this.startGameLoop();
+                
+                const now = Date.now();
+                const diff = (now - this.state.lastSaveTime) / 1000;
+                if (diff > 60) {
+                    const cps = this.getCPS();
+                    const earned = cps * diff * 0.5;
+                    if (earned > 1) {
+                        this.addCash(earned);
+                        document.getElementById('offline-earnings').textContent = this.formatNumber(earned);
+                        document.getElementById('welcome-modal').classList.remove('hidden');
+                    }
+                }
+            },
+
+            getCPS() {
+                let baseCPS = 0;
+                for (let key in this.state.upgrades) {
+                    const u = this.state.upgrades[key];
+                    if (u.type === 'passive') {
+                        const multiplier = Math.pow(2, Math.floor(u.count / this.MILESTONE_STEP));
+                        baseCPS += (u.baseInc * u.count) * multiplier;
+                    }
+                }
+                const prestigeMult = 1 + (this.state.prestigeChips * this.PRESTIGE_BONUS_PER_CHIP);
+                return baseCPS * prestigeMult;
+            },
+
+            getClickPower() {
+                const u = this.state.upgrades.clicker;
+                const multiplier = Math.pow(2, Math.floor(u.count / this.MILESTONE_STEP));
+                const base = 1 + (u.baseInc * u.count * multiplier);
+                const prestigeMult = 1 + (this.state.prestigeChips * this.PRESTIGE_BONUS_PER_CHIP);
+                return base * prestigeMult;
+            },
+
+            getCost(key) {
+                const u = this.state.upgrades[key];
+                return u.baseCost * Math.pow(1.15, u.count);
+            },
+
+            addCash(amount) {
+                this.state.cash += amount;
+                if (amount > 0) this.state.lifetimeCash += amount;
+            },
+
+            buyUpgrade(key) {
+                const cost = this.getCost(key);
+                if (this.state.cash >= cost) {
+                    this.state.cash -= cost;
+                    this.state.upgrades[key].count++;
+                    this.playSfx('buy');
+                    this.renderUpgrades();
+                    this.updateUI();
+                    this.save();
+                }
+            },
+
+            calcPrestigeChips() {
+                if (this.state.lifetimeCash < 1000000) return 0;
+                return Math.floor(Math.cbrt(this.state.lifetimeCash / 1000000));
+            },
+
+            showPrestigeModal() {
+                const currentChips = this.state.prestigeChips;
+                const potentialTotal = this.calcPrestigeChips();
+                const gain = Math.max(0, potentialTotal - currentChips);
+                
+                document.getElementById('modal-current-bonus').textContent = `${(currentChips * this.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0)}%`;
+                document.getElementById('modal-new-bonus').textContent = `${((currentChips + gain) * this.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0)}%`;
+                document.getElementById('modal-gain-amount').textContent = gain;
+                
+                const modal = document.getElementById('prestige-modal');
+                const btn = modal.querySelector('button:last-child');
+                
+                if (gain > 0) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else {
+                    btn.disabled = true;
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                
+                modal.classList.remove('hidden');
+            },
+
+            doPrestige() {
+                const gain = Math.max(0, this.calcPrestigeChips() - this.state.prestigeChips);
+                if (gain <= 0) return;
+
+                this.state.prestigeChips += gain;
+                this.state.cash = 0;
+                this.state.lifetimeCash = 0;
+
+                for (let k in this.state.upgrades) {
+                    this.state.upgrades[k].count = 0;
+                }
+
+                this.save();
+                location.reload();
+            },
+
+            clickMain(e) {
+                const power = this.getClickPower();
+                this.addCash(power);
+                
+                const btn = document.getElementById('main-clicker');
+                btn.classList.remove('active');
+                void btn.offsetWidth;
+                btn.classList.add('active');
+                
+                let x, y;
+                if (e.type === 'keydown') {
+                    const rect = btn.getBoundingClientRect();
+                    x = rect.left + rect.width / 2;
+                    y = rect.top + rect.height / 2;
+                } else {
+                    x = e.clientX;
+                    y = e.clientY;
+                }
+                
+                this.spawnText(x, y, `+$${this.formatNumber(power)}`);
+                this.playSfx('chaching');
+            },
+
+            spawnText(x, y, text, isGold = false) {
+                const container = document.getElementById('floating-text-container');
+                if (!container) return;
+                
+                const el = document.createElement('div');
+                el.className = `floating-text ${isGold ? 'text-gold-400 text-3xl z-50' : 'text-green-400 text-xl'}`;
+                el.textContent = text;
+                const offsetX = (Math.random() - 0.5) * 40;
+                el.style.position = 'fixed';
+                el.style.left = `${x + offsetX}px`;
+                el.style.top = `${y - 20}px`;
+                el.style.pointerEvents = 'none';
+                container.appendChild(el);
+                setTimeout(() => {
+                    if (el.parentNode) el.remove();
+                }, 1000);
+            },
+
+            spawnGoldenChip() {
+                const container = document.getElementById('event-container');
+                const el = document.createElement('div');
+                el.className = 'golden-cookie pointer-events-auto';
+                el.innerHTML = '<i class="fas fa-crown"></i>';
+                el.style.top = `${10 + Math.random() * 80}%`;
+                
+                el.onclick = (e) => {
+                    e.stopPropagation();
+                    const cps = this.getCPS();
+                    const bonus = Math.max(1000, cps * 300);
+                    this.addCash(bonus);
+                    this.spawnText(e.clientX, e.clientY, `JACKPOT! +$${this.formatNumber(bonus)}`, true);
+                    this.playSfx('win');
+                    el.remove();
+                };
+
+                container.appendChild(el);
+                setTimeout(() => { if(el.parentNode) el.remove(); }, 15000);
+            },
+
+            formatNumber(num) {
+                if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+                if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+                if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+                if (num >= 1e3) return (num / 1e3).toFixed(1) + 'k';
+                return Math.floor(num).toLocaleString();
+            },
+
+            formatTime(ms) {
+                const s = Math.floor(ms / 1000);
+                const h = Math.floor(s / 3600).toString().padStart(2,'0');
+                const m = Math.floor((s % 3600) / 60).toString().padStart(2,'0');
+                const sec = (s % 60).toString().padStart(2,'0');
+                return `${h}:${m}:${sec}`;
+            },
+
+            setupUI() {
+                this.renderUpgrades();
+
+                const btn = document.getElementById('main-clicker');
+                btn.addEventListener('pointerdown', (e) => this.clickMain(e));
+                
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space' || e.code === 'Enter') {
+                        e.preventDefault();
+                        this.clickMain(e);
+                    }
+                });
+            },
+
+            renderUpgrades() {
+                const list = document.getElementById('upgrade-list');
+                list.innerHTML = '';
+                
+                for (let key in this.state.upgrades) {
+                    const u = this.state.upgrades[key];
+                    const cost = this.getCost(key);
+                    const canAfford = this.state.cash >= cost;
+                    
+                    const nextMilestone = (Math.floor(u.count / this.MILESTONE_STEP) + 1) * this.MILESTONE_STEP;
+                    const progress = (u.count % this.MILESTONE_STEP) / this.MILESTONE_STEP * 100;
+                    
+                    const item = document.createElement('div');
+                    item.className = `p-2 rounded bg-white/5 border border-white/10 transition-colors ${canAfford ? 'hover:bg-white/10 cursor-pointer' : 'opacity-60'}`;
+                    
+                    item.onclick = () => this.buyUpgrade(key);
+                    
+                    item.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 flex items-center justify-center bg-black/50 rounded-full text-gold-400 text-xl border border-gold-600/30">
+                                <i class="fas ${u.icon}"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-bold text-sm text-slate-200">${u.name}</span>
+                                    <span class="text-xs font-mono text-slate-400">Lvl ${u.count}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-gold-500 font-mono">$${this.formatNumber(cost)}</span>
+                                    <span class="text-[10px] text-green-400">+${this.formatNumber(u.baseInc)}/s</span>
+                                </div>
+                                <div class="w-full h-1 bg-black/50 mt-2 rounded-full overflow-hidden">
+                                    <div class="h-full bg-blue-500 transition-all" style="width: ${progress}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                }
+            },
+
+            updateUI() {
+                document.getElementById('cash-display').textContent = this.formatNumber(this.state.cash);
+                document.getElementById('cps-display').textContent = this.formatNumber(this.getCPS());
+                
+                document.getElementById('prestige-display').textContent = this.state.prestigeChips;
+                document.getElementById('bonus-display').textContent = (this.state.prestigeChips * this.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0);
+                
+                const playTime = Date.now() - this.state.startTime;
+                document.getElementById('time-display').textContent = this.formatTime(playTime);
+
+                const list = document.getElementById('upgrade-list');
+                let idx = 0;
+                for (let key in this.state.upgrades) {
+                    const cost = this.getCost(key);
+                    const canAfford = this.state.cash >= cost;
+                    const el = list.children[idx];
+                    if (el) {
+                        el.className = `p-2 rounded bg-white/5 border border-white/10 transition-colors ${canAfford ? 'hover:bg-white/10 cursor-pointer' : 'opacity-60'}`;
+                    }
+                    idx++;
+                }
+            },
+
+            startGameLoop() {
+                setInterval(() => {
+                    const cps = this.getCPS();
+                    if (cps > 0) this.addCash(cps / 10);
+                    this.state.lastSaveTime = Date.now();
+                    this.updateUI();
+                    
+                    if (Math.random() < 0.0005) this.spawnGoldenChip();
+                    
+                }, 100);
+
+                setInterval(() => this.save(), 30000);
+            },
+
+            setupBackground() {
+                const cvs = document.getElementById('bg-canvas');
+                const ctx = cvs.getContext('2d');
+                let particles = [];
+
+                const resize = () => {
+                    cvs.width = window.innerWidth;
+                    cvs.height = window.innerHeight;
+                };
+                window.addEventListener('resize', resize);
+                resize();
+
+                const suits = ['♠', '♥', '♦', '♣'];
+                
+                for(let i=0; i<40; i++) {
+                    particles.push({
+                        x: Math.random() * cvs.width,
+                        y: Math.random() * cvs.height,
+                        speed: 0.2 + Math.random() * 0.5,
+                        text: suits[Math.floor(Math.random()*4)],
+                        size: 10 + Math.random() * 30,
+                        opacity: 0.05 + Math.random() * 0.1
+                    });
+                }
+
+                const animate = () => {
+                    ctx.clearRect(0, 0, cvs.width, cvs.height);
+                    
+                    particles.forEach(p => {
+                        ctx.font = `${p.size}px Arial`;
+                        ctx.fillStyle = (p.text === '♥' || p.text === '♦') ? '#ef4444' : '#000000';
+                        ctx.globalAlpha = p.opacity;
+                        ctx.fillText(p.text, p.x, p.y);
+                        
+                        p.y += p.speed;
+                        if (p.y > cvs.height + 50) {
+                            p.y = -50;
+                            p.x = Math.random() * cvs.width;
+                        }
+                    });
+                    
+                    requestAnimationFrame(animate);
+                };
+                animate();
+            },
+
+            save() {
+                localStorage.setItem('highRollerUltimate', JSON.stringify(this.state));
+            },
+
+            load() {
+                const data = localStorage.getItem('highRollerUltimate');
+                if (data) {
+                    try {
+                        const parsed = JSON.parse(data);
+                        this.state = { ...this.state, ...parsed };
+                        
+                        for(const k in GAME.state.upgrades) {
+                            if (parsed.upgrades && parsed.upgrades[k]) {
+                                GAME.state.upgrades[k].count = parsed.upgrades[k].count;
+                            }
+                        }
+                    } catch(e) { console.error("Save load failed", e); }
+                }
+            },
+
+            setupAudio() {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                // Preload audio files if they exist
+                this.audioFiles = {};
+                try {
+                    const chachingAudio = new Audio('/chaching.mp3');
+                    chachingAudio.volume = 0.5;
+                    chachingAudio.preload = 'auto';
+                    chachingAudio.onerror = () => {
+                        // File doesn't exist or failed to load, will fall back to synthesized sound
+                        console.log('Audio file not found, using synthesized sound');
+                        delete this.audioFiles.chaching;
+                    };
+                    chachingAudio.oncanplaythrough = () => {
+                        // Audio file loaded successfully
+                        this.audioFiles.chaching = chachingAudio;
+                    };
+                    // Try to load it
+                    chachingAudio.load();
+                } catch(e) {
+                    console.log('Could not create audio object, using synthesized sound');
+                }
+            },
+
+            toggleSound() {
+                this.state.settings.sound = !this.state.settings.sound;
+                const icon = document.getElementById('sound-icon');
+                icon.className = this.state.settings.sound ? 'fas fa-volume-up mr-2' : 'fas fa-volume-mute mr-2';
+            },
+
+            playSfx(type) {
+                if (!this.state.settings.sound) return;
+                
+                // Try to use audio file first (if available)
+                if (type === 'chaching' && this.audioFiles && this.audioFiles.chaching) {
+                    try {
+                        // Create a new Audio instance from the source to allow multiple simultaneous plays
+                        const audio = new Audio('/chaching.mp3');
+                        audio.volume = 0.5;
+                        audio.play().catch(e => {
+                            // Fall back to synthesized if play fails (e.g., autoplay restrictions)
+                            this.playSynthesizedSfx(type);
+                        });
+                        return;
+                    } catch(e) {
+                        // Fall back to synthesized sound
+                        this.playSynthesizedSfx(type);
+                        return;
+                    }
+                }
+                
+                // Use synthesized sounds
+                this.playSynthesizedSfx(type);
+            },
+            
+            playSynthesizedSfx(type) {
+                if (!this.state.settings.sound) return;
+                if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+                
+                const osc = this.audioCtx.createOscillator();
+                const gain = this.audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(this.audioCtx.destination);
+                
+                const now = this.audioCtx.currentTime;
+                
+                if (type === 'chip') {
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'buy') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1200, now);
+                    osc.frequency.exponentialRampToValueAtTime(1800, now + 0.1);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.linearRampToValueAtTime(0, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } else if (type === 'chaching') {
+                    // "Cha ching" cash register sound - improved synthesized version
+                    // First chime - "cha"
+                    const cha1 = this.audioCtx.createOscillator();
+                    const cha1Gain = this.audioCtx.createGain();
+                    cha1.type = 'sine';
+                    cha1.connect(cha1Gain);
+                    cha1Gain.connect(this.audioCtx.destination);
+                    cha1.frequency.setValueAtTime(600, now);
+                    cha1.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+                    cha1Gain.gain.setValueAtTime(0.15, now);
+                    cha1Gain.gain.exponentialRampToValueAtTime(0, now + 0.12);
+                    cha1.start(now);
+                    cha1.stop(now + 0.12);
+                    
+                    // Second chime - "ching"
+                    const ching = this.audioCtx.createOscillator();
+                    const chingGain = this.audioCtx.createGain();
+                    ching.type = 'square';
+                    ching.connect(chingGain);
+                    chingGain.connect(this.audioCtx.destination);
+                    ching.frequency.setValueAtTime(1200, now + 0.1);
+                    ching.frequency.exponentialRampToValueAtTime(2000, now + 0.15);
+                    ching.frequency.exponentialRampToValueAtTime(1000, now + 0.25);
+                    chingGain.gain.setValueAtTime(0.12, now + 0.1);
+                    chingGain.gain.exponentialRampToValueAtTime(0, now + 0.3);
+                    ching.start(now + 0.1);
+                    ching.stop(now + 0.3);
+                    
+                    // Metallic resonance
+                    const resonance = this.audioCtx.createOscillator();
+                    const resGain = this.audioCtx.createGain();
+                    resonance.type = 'triangle';
+                    resonance.connect(resGain);
+                    resGain.connect(this.audioCtx.destination);
+                    resonance.frequency.setValueAtTime(1500, now + 0.15);
+                    resonance.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+                    resGain.gain.setValueAtTime(0.08, now + 0.15);
+                    resGain.gain.exponentialRampToValueAtTime(0, now + 0.35);
+                    resonance.start(now + 0.15);
+                    resonance.stop(now + 0.35);
+                } else if (type === 'win') {
+                    [523.25, 659.25, 783.99].forEach((freq, i) => {
+                        const o = this.audioCtx.createOscillator();
+                        const g = this.audioCtx.createGain();
+                        o.connect(g);
+                        g.connect(this.audioCtx.destination);
+                        o.frequency.value = freq;
+                        g.gain.setValueAtTime(0.05, now + i*0.1);
+                        g.gain.linearRampToValueAtTime(0, now + i*0.1 + 0.3);
+                        o.start(now + i*0.1);
+                        o.stop(now + i*0.1 + 0.3);
+                    });
+                }
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => GAME.init());
+    </script>
+</body>
+</html>
+

@@ -13,11 +13,12 @@ const Ballpit = ({ colors }) => {
   // Physics Constants from JSON
   const PHYSICS = {
     count: 45,
-    gravity: 0.02,
+    gravity: 0.6,
     friction: 0.998,
     bounce: 0.95, // Restitution
-    mouseRadius: 200,
-    mouseForce: 0.004,
+    mouseRadius: 220, // Balanced interaction radius
+    mouseForce: 0.006, // Moderate base force
+    directHoverMultiplier: 2.5, // Moderate extra force when directly over a ball
     radiusMin: 15,
     radiusMax: 30
   };
@@ -55,16 +56,28 @@ const Ballpit = ({ colors }) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       ballsRef.current.forEach(ball => {
-        // 1. Interactive Logic: "Chill Repulsion"
+        // 1. Enhanced Interactive Logic: Direct hover detection
         const dx = ball.x - mouseRef.current.x;
         const dy = ball.y - mouseRef.current.y;
         const distance = Math.sqrt(dx*dx + dy*dy);
+        const isDirectlyOver = distance < ball.radius; // Cursor is directly over the ball
 
         if (distance < PHYSICS.mouseRadius) {
           const angle = Math.atan2(dy, dx);
-          const force = (PHYSICS.mouseRadius - distance) * PHYSICS.mouseForce;
-          ball.vx += Math.cos(angle) * force;
-          ball.vy += Math.sin(angle) * force;
+          // Base force with smooth distance falloff
+          let force = (PHYSICS.mouseRadius - distance) * PHYSICS.mouseForce;
+          
+          // If cursor is directly over the ball, apply slightly stronger force
+          if (isDirectlyOver) {
+            force *= PHYSICS.directHoverMultiplier;
+            // Gentle push away from cursor when directly over
+            ball.vx += Math.cos(angle) * force;
+            ball.vy += Math.sin(angle) * force;
+          } else {
+            // Chill repulsion for nearby balls
+            ball.vx += Math.cos(angle) * force;
+            ball.vy += Math.sin(angle) * force;
+          }
         }
 
         // 2. Forces (Euler Integration)
@@ -114,12 +127,19 @@ const Ballpit = ({ colors }) => {
     window.addEventListener('resize', handleResize);
     const onMouseMove = (e) => {
         const rect = canvas.getBoundingClientRect();
-        mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        mouseRef.current = { x, y };
     };
     
-    // Add listeners
-    canvas.addEventListener('mousemove', onMouseMove);
-    canvas.addEventListener('mouseleave', () => mouseRef.current = {x: -1000, y: -1000});
+    const onMouseLeave = () => {
+      mouseRef.current = {x: -1000, y: -1000};
+    };
+    
+    // Add listeners - use capture phase to ensure we get events
+    canvas.addEventListener('mousemove', onMouseMove, { passive: true });
+    canvas.addEventListener('mouseenter', onMouseMove, { passive: true });
+    canvas.addEventListener('mouseleave', onMouseLeave, { passive: true });
 
     // Start
     handleResize();
@@ -128,11 +148,13 @@ const Ballpit = ({ colors }) => {
     return () => {
       window.removeEventListener('resize', handleResize);
       canvas.removeEventListener('mousemove', onMouseMove);
+      canvas.removeEventListener('mouseenter', onMouseMove);
+      canvas.removeEventListener('mouseleave', onMouseLeave);
       cancelAnimationFrame(requestRef.current);
     };
   }, [colors]);
 
-  return <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'auto', zIndex: 0 }} />;
+  return <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'auto', zIndex: 1 }} />;
 };
 
 export default Ballpit;
