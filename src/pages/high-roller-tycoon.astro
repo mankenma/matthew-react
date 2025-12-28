@@ -667,7 +667,9 @@ export const prerender = true;
             clickMain(e) {
                 // Ensure music starts on first interaction if enabled
                 if (this.state.settings.music && this.bgm && this.bgm.paused) {
-                    this.bgm.play().catch(e => {});
+                    this.bgm.play()
+                        .then(() => console.log('[BGM] Started playing on user interaction'))
+                        .catch(err => console.error('[BGM] Failed to play on interaction:', err));
                 }
 
                 const power = this.getClickPower();
@@ -906,8 +908,22 @@ export const prerender = true;
                     this.bgm = new Audio('/casino-jazz.mp3');
                     this.bgm.loop = true;
                     this.bgm.volume = 0.2; // Soft background volume
+                    this.bgm.preload = 'auto';
+                    
+                    // Add event listeners for debugging
+                    this.bgm.addEventListener('loadstart', () => console.log('[BGM] Loading started'));
+                    this.bgm.addEventListener('canplay', () => console.log('[BGM] Can play'));
+                    this.bgm.addEventListener('canplaythrough', () => console.log('[BGM] Can play through'));
+                    this.bgm.addEventListener('playing', () => console.log('[BGM] Now playing'));
+                    this.bgm.addEventListener('error', (e) => {
+                        console.error('[BGM] Error loading:', e);
+                        console.error('[BGM] Error details:', this.bgm.error);
+                    });
+                    
+                    // Try to load the audio
+                    this.bgm.load();
                 } catch(e) {
-                    console.log("Music file not found or load failed");
+                    console.error("Music file not found or load failed:", e);
                 }
 
                 // Sync UI with State
@@ -936,14 +952,30 @@ export const prerender = true;
             },
 
             playMusic() {
-                if (!this.bgm) return;
+                if (!this.bgm) {
+                    console.log('[BGM] No bgm object available');
+                    return;
+                }
+                
+                console.log('[BGM] Attempting to play. State:', {
+                    paused: this.bgm.paused,
+                    readyState: this.bgm.readyState,
+                    src: this.bgm.src,
+                    error: this.bgm.error
+                });
+                
                 // Browser policy requires user interaction first. 
                 // If this fails, it will likely work on the next click.
                 const promise = this.bgm.play();
                 if (promise !== undefined) {
-                    promise.catch(error => {
-                        console.log("Autoplay prevented. Music will start on interaction.");
-                    });
+                    promise
+                        .then(() => {
+                            console.log('[BGM] Successfully started playing');
+                        })
+                        .catch(error => {
+                            console.error('[BGM] Autoplay prevented:', error);
+                            console.log('[BGM] Music will start on next user interaction.');
+                        });
                 }
             },
 
