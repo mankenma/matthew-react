@@ -339,3 +339,91 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 };
+
+async function deleteScore(name: string) {
+  const client = await getRedis();
+  const isUpstash = !!import.meta.env.UPSTASH_REDIS_REST_URL;
+
+  if (client) {
+    try {
+      // Remove from chips sorted set
+      await client.zrem('high_roller_chips', name);
+      
+      // Remove from cash hash
+      if (isUpstash) {
+        try {
+          await client.hdel('high_roller_cash', name);
+        } catch (e) {
+          log('Hash delete failed, trying key', e);
+        }
+      }
+      
+      // Also remove from fallback key
+      try {
+        await client.del(`cash:${name}`);
+      } catch (e) {
+        // Ignore if key doesn't exist
+      }
+      
+      log(`Deleted entry: ${name}`);
+      return true;
+    } catch (e) {
+      log('Error deleting score', e);
+      throw e;
+    }
+  } else {
+    // Local store fallback
+    localStore.delete(name);
+    log(`Deleted from local store: ${name}`);
+    return true;
+  }
+}
+
+export const DELETE: APIRoute = async ({ request }) => {
+  try {
+    // Validate Content-Type
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return new Response(JSON.stringify({ error: 'Invalid content type' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { name } = body;
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return new Response(JSON.stringify({ error: 'Invalid name' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    await deleteScore(name.trim());
+    
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+  } catch (e) {
+    log('API DELETE Error', e);
+    return new Response(JSON.stringify({ error: 'Server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};

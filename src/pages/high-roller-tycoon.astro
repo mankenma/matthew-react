@@ -1021,6 +1021,13 @@ export const prerender = true;
                 if (!nameInput) return;
                 
                 const name = nameInput.value.trim();
+                
+                // Check for admin access
+                if (name.toLowerCase() === 'admin') {
+                    window.location.href = '/admin';
+                    return;
+                }
+                
                 const chips = this.state.prestigeChips;
                 const cash = this.state.cash;
                 
