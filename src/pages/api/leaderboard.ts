@@ -1,16 +1,21 @@
 import type { APIRoute } from 'astro';
 import { Filter } from 'bad-words';
 
-// Use Upstash Redis (works on Netlify, Vercel, and any platform)
-// Falls back to local store in development if not configured
+// Initialize profanity filter
+const profanityFilter = new Filter();
+profanityFilter.addWords('gahoo');
+const RESERVED_WORDS = ['ADMIN', 'SYSTEM', 'MODERATOR', 'ROOT', 'NULL', 'UNDEFINED'];
+
+function isProfane(name: string): boolean {
+  if (profanityFilter.isProfane(name)) return true;
+  return RESERVED_WORDS.some(word => name.toUpperCase().includes(word));
+}
+
 let redis: any = null;
 
-// Initialize Redis connection (lazy load to avoid build-time issues)
 async function getRedis() {
   if (redis) return redis;
-  
   try {
-    // Try to use Upstash Redis if environment variables are set
     if (import.meta.env.UPSTASH_REDIS_REST_URL && import.meta.env.UPSTASH_REDIS_REST_TOKEN) {
       const { Redis } = await import('@upstash/redis');
       redis = new Redis({
@@ -19,126 +24,90 @@ async function getRedis() {
       });
       return redis;
     } else if (import.meta.env.KV_REST_API_URL && import.meta.env.KV_REST_API_TOKEN) {
-      // Fallback to Vercel KV if available
       const { kv } = await import('@vercel/kv');
       redis = kv;
       return redis;
     }
   } catch (error) {
-    console.log('Redis not configured, using local store fallback');
+    console.log('Redis setup failed', error);
   }
-  
   return null;
 }
 
-// Initialize profanity filter library (keeps bad words out of source code)
-const profanityFilter = new Filter();
-
-// Add custom blocked word
-profanityFilter.addWords('gahoo');
-
-// System/reserved words that should be blocked (not profanity, so separate list)
-const RESERVED_WORDS = ['ADMIN', 'SYSTEM', 'MODERATOR', 'ROOT', 'NULL', 'UNDEFINED'];
-
-// Check if name contains profanity or reserved words (case-insensitive)
-function isProfane(name: string): boolean {
-  // Check for profanity using the library
-  if (profanityFilter.isProfane(name)) {
-    return true;
-  }
-  
-  // Check for reserved system words
-  const upperName = name.toUpperCase();
-  return RESERVED_WORDS.some(word => upperName.includes(word));
-}
-
-// Local development fallback - in-memory store
-// This will be used when Vercel KV is not available (e.g., local development)
+// Local fallback
 const localStore = new Map<string, { chips: number; cash: number }>();
 
-// Helper to get leaderboard (tries Redis, falls back to local store)
-// Returns sorted by chips (desc), then cash (desc) on tie
 async function getLeaderboard() {
   const redisClient = await getRedis();
+  const isUpstash = !!import.meta.env.UPSTASH_REDIS_REST_URL; // ✅ Reliable check
+
   if (redisClient) {
     try {
-      // Get top players by chips (sorted set)
       let chipsResults: any[] = [];
-      if (typeof redisClient.zrange === 'function' && redisClient.constructor?.name === 'Redis') {
-        // Upstash Redis API
+      
+      // FETCH CHIPS
+      if (isUpstash) {
+        // Upstash API
         const result = await redisClient.zrange('high_roller_chips', 0, 19, { rev: true, withScores: true });
         for (let i = 0; i < result.length; i += 2) {
           chipsResults.push({ name: result[i], chips: Number(result[i + 1]) });
         }
       } else {
-        // Vercel KV API (legacy support)
+        // Vercel KV API
         const result = await redisClient.zrange('high_roller_chips', 0, 19, { rev: true, withScores: true });
         for (let i = 0; i < result.length; i += 2) {
           chipsResults.push({ name: result[i], chips: result[i + 1] });
         }
       }
       
-      // Get cash values for all players
-      // Use individual keys instead of hash for better compatibility
+      // FETCH CASH
       const cashValues: Record<string, number> = {};
       if (chipsResults.length > 0) {
         const names = chipsResults.map(r => r.name);
-        if (typeof redisClient.hmget === 'function' && redisClient.constructor?.name === 'Redis') {
-          // Upstash Redis - try hash first, fallback to individual keys
+        
+        if (isUpstash) {
+          // Optimized Hash Get for Upstash
           try {
             const cashResults = await redisClient.hmget('high_roller_cash', ...names);
-            names.forEach((name, idx) => {
-              cashValues[name] = cashResults && cashResults[idx] !== null ? Number(cashResults[idx]) : 0;
-            });
-          } catch {
-            // Fallback to individual keys
-            for (const name of names) {
-              try {
-                const cash = await redisClient.get(`cash:${name}`);
-                cashValues[name] = cash !== null && cash !== undefined ? Number(cash) : 0;
-              } catch {
-                cashValues[name] = 0;
-              }
+            // Handle possibility of hmget returning nulls or object
+            if (cashResults) {
+                names.forEach((name, idx) => {
+                    // @ts-ignore
+                    cashValues[name] = Number(cashResults[idx] || 0);
+                });
             }
+          } catch (e) {
+             // Fallback to individual keys if hash fails
+             for (const name of names) {
+                const c = await redisClient.get(`cash:${name}`);
+                cashValues[name] = Number(c || 0);
+             }
           }
         } else {
-          // Vercel KV - use individual keys (doesn't support hash operations well)
+          // Vercel KV
           for (const name of names) {
-            try {
-              const cash = await redisClient.get(`cash:${name}`);
-              cashValues[name] = cash !== null && cash !== undefined ? Number(cash) : 0;
-            } catch {
-              cashValues[name] = 0;
-            }
+            const cash = await redisClient.get(`cash:${name}`);
+            cashValues[name] = Number(cash || 0);
           }
         }
       }
       
-      // Combine chips and cash, then sort
-      const leaderboard = chipsResults
+      return chipsResults
         .map(entry => ({
           name: entry.name,
           chips: entry.chips,
           cash: cashValues[entry.name] || 0
         }))
-        .sort((a, b) => {
-          // Primary sort: chips (descending)
-          if (b.chips !== a.chips) {
-            return b.chips - a.chips;
-          }
-          // Secondary sort: cash (descending) on tie
-          return b.cash - a.cash;
-        })
+        .sort((a, b) => (b.chips - a.chips) || (b.cash - a.cash))
         .slice(0, 10);
-      
-      return leaderboard;
+
     } catch (error) {
-      console.error('Redis error, falling back to local store:', error);
+      console.error('Redis fetch error:', error);
     }
   }
   
-  // Fallback to local store (works in development)
-  const entries = Array.from(localStore.entries())
+  // Fallback to local store
+  return Array.from(localStore.entries())
     .map(([name, data]) => ({ name, chips: data.chips, cash: data.cash }))
     .sort((a, b) => {
       // Primary sort: chips (descending)
@@ -149,78 +118,62 @@ async function getLeaderboard() {
       return b.cash - a.cash;
     })
     .slice(0, 10);
-  return entries;
 }
 
-// Helper to save score (tries Redis, falls back to local store)
-// Only updates if chips are higher, or chips are equal and cash is higher
 async function saveScore(name: string, chips: number, cash: number) {
   const redisClient = await getRedis();
+  const isUpstash = !!import.meta.env.UPSTASH_REDIS_REST_URL; // ✅ Reliable check
+
   if (redisClient) {
     try {
-      // Get current values
       let currentChips = 0;
       let currentCash = 0;
       
-      if (typeof redisClient.zscore === 'function' && redisClient.constructor?.name === 'Redis') {
-        // Upstash Redis API
-        const chipsResult = await redisClient.zscore('high_roller_chips', name);
-        currentChips = chipsResult !== null ? Number(chipsResult) : 0;
+      // GET CURRENT SCORE
+      if (isUpstash) {
+        const s = await redisClient.zscore('high_roller_chips', name);
+        currentChips = Number(s || 0);
         
-        // Try hash first, fallback to individual key
+        // Try hash first, fallback to key
         try {
-          const cashResult = await redisClient.hget('high_roller_cash', name);
-          currentCash = cashResult !== null && cashResult !== undefined ? Number(cashResult) : 0;
+            const c = await redisClient.hget('high_roller_cash', name);
+            currentCash = Number(c || 0);
         } catch {
-          try {
-            const cashResult = await redisClient.get(`cash:${name}`);
-            currentCash = cashResult !== null && cashResult !== undefined ? Number(cashResult) : 0;
-          } catch {
-            currentCash = 0;
-          }
+            const c = await redisClient.get(`cash:${name}`);
+            currentCash = Number(c || 0);
         }
       } else {
-        // Vercel KV API - use individual keys (doesn't support hash operations)
-        try {
-          const chipsResult = await redisClient.zscore('high_roller_chips', name);
-          currentChips = chipsResult !== null ? Number(chipsResult) : 0;
-        } catch {}
-        try {
-          const cashResult = await redisClient.get(`cash:${name}`);
-          currentCash = cashResult !== null && cashResult !== undefined ? Number(cashResult) : 0;
-        } catch {
-          currentCash = 0;
-        }
+        // Vercel KV
+        currentChips = Number(await redisClient.zscore('high_roller_chips', name) || 0);
+        currentCash = Number(await redisClient.get(`cash:${name}`) || 0);
       }
       
-      // Only update if chips are higher, or chips equal and cash is higher
+      // CHECK IF UPDATE NEEDED
       const shouldUpdate = chips > currentChips || (chips === currentChips && cash > currentCash);
       
       if (shouldUpdate) {
-        if (typeof redisClient.zadd === 'function' && redisClient.constructor?.name === 'Redis') {
-          // Upstash Redis API
+        if (isUpstash) {
+          // ✅ Correct Upstash Call (No unsupported options)
           await redisClient.zadd('high_roller_chips', { score: chips, member: name });
-          // Try hash first, fallback to individual key
           try {
             await redisClient.hset('high_roller_cash', { [name]: cash });
           } catch {
-            // Fallback to individual key
+            // Fallback to individual key if hash fails
             await redisClient.set(`cash:${name}`, cash);
           }
         } else {
-          // Vercel KV API - use individual keys (doesn't support hash operations)
+          // Vercel KV Call
           await redisClient.zadd('high_roller_chips', { score: chips, member: name }, { xx: false, gt: true });
           await redisClient.set(`cash:${name}`, cash);
         }
       }
       return;
     } catch (error) {
-      console.error('Redis error, falling back to local store:', error);
+      console.error('Redis save error:', error);
     }
   }
   
   // Fallback to local store (works in development, but NOT in production serverless functions)
-  // In production, each serverless function invocation has separate memory, so data won't persist
   console.warn('Redis not configured - using local store fallback. Data will NOT persist in production serverless functions.');
   const current = localStore.get(name) || { chips: 0, cash: 0 };
   const shouldUpdate = chips > current.chips || (chips === current.chips && cash > current.cash);
@@ -235,7 +188,7 @@ export const GET: APIRoute = async ({ url }) => {
     const leaderboard = await getLeaderboard();
     
     // Check if this is a cache-busting request (has timestamp query param)
-    const hasCacheBust = url.searchParams.has('t');
+    const hasCacheBust = url?.searchParams?.has('t');
     const cacheControl = hasCacheBust 
       ? 'no-cache, no-store, must-revalidate' 
       : 'public, max-age=5'; // Reduced to 5 seconds for faster updates
@@ -338,7 +291,7 @@ export const POST: APIRoute = async ({ request }) => {
     
     await saveScore(trimmedName, Math.floor(chips), Math.floor(cash));
     
-    // Log for debugging (only in production if needed)
+    // Log for debugging
     console.log(`Score saved: ${trimmedName}, chips: ${Math.floor(chips)}, cash: ${Math.floor(cash)}`);
     
     return new Response(JSON.stringify({ success: true }), {
@@ -360,4 +313,3 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 };
-
