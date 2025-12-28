@@ -190,14 +190,14 @@ export const prerender = true;
         }
     </style>
 </head>
-<body class="h-screen w-screen text-slate-100 flex flex-col md:flex-row overflow-hidden relative">
+<body class="h-[100dvh] w-screen text-slate-100 flex flex-col md:flex-row overflow-hidden relative supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh]">
 
     <canvas id="bg-canvas" class="fixed top-0 left-0 w-full h-full -z-10"></canvas>
 
     <div id="event-container" class="absolute inset-0 pointer-events-none overflow-hidden z-40"></div>
     <div id="floating-text-container" class="fixed inset-0 pointer-events-none overflow-hidden z-50"></div>
 
-    <aside class="w-full md:w-1/4 bg-black/40 border-b md:border-b-0 md:border-r border-gold-600/30 p-4 flex flex-col justify-between z-20 backdrop-blur-sm order-2 md:order-1 h-[20vh] md:h-full">
+    <aside class="w-full md:w-1/4 bg-black/40 border-b md:border-b-0 md:border-r border-gold-600/30 p-4 pt-8 md:pt-4 flex flex-col justify-between z-20 backdrop-blur-sm order-2 md:order-1 h-[20vh] md:h-full shrink-0">
         <div>
             <a href="/" class="block mb-4 group">
                 <button class="w-full py-2 px-4 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 font-ui text-sm font-bold">
@@ -208,8 +208,7 @@ export const prerender = true;
             <h1 class="font-casino text-3xl text-gold-400 text-center mb-1 drop-shadow-md">HIGH ROLLER</h1>
             <div class="text-center text-xs text-gold-600/70 tracking-[0.3em] font-ui mb-6">TYCOON</div>
 
-            <div class="space-y-4 font-ui">
-                <div class="bg-black/50 p-3 rounded border border-gold-600/20">
+            <div class="space-y-4 font-ui hidden md:block"> <div class="bg-black/50 p-3 rounded border border-gold-600/20">
                     <div class="text-xs text-slate-400 uppercase">Prestige Bonus</div>
                     <div class="flex items-center gap-2">
                         <i class="fas fa-crown text-gold-400"></i>
@@ -223,17 +222,20 @@ export const prerender = true;
                     <div id="time-display" class="font-mono text-sm">00:00:00</div>
                 </div>
             </div>
+             <div class="flex md:hidden justify-between text-xs text-slate-400 font-mono border-t border-white/10 pt-2 mt-2">
+                 <span>Bonus: <span id="prestige-display-mobile" class="text-gold-400">0</span>%</span>
+                 <span id="time-display-mobile">00:00</span>
+            </div>
         </div>
 
-        <button onclick="GAME.showPrestigeModal()" class="group relative w-full py-3 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all overflow-hidden mt-4 md:mt-0">
+        <button onclick="GAME.showPrestigeModal()" class="group relative w-full py-3 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all overflow-hidden mt-2 md:mt-0">
             <div class="absolute inset-0 bg-gold-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-            <span class="relative font-bold font-ui text-sm uppercase tracking-wider"><i class="fas fa-sack-dollar mr-2"></i>Cash Out (Prestige)</span>
+            <span class="relative font-bold font-ui text-sm uppercase tracking-wider"><i class="fas fa-sack-dollar mr-2"></i>Cash Out</span>
         </button>
     </aside>
 
-    <main class="flex-1 flex flex-col items-center justify-center relative z-20 order-1 md:order-2 h-[50vh] md:h-full">
-        
-        <div class="text-center mb-8 md:mb-16 animate-fade-in-down w-full px-4">
+    <main class="flex-1 flex flex-col items-center justify-center relative z-20 order-1 md:order-2 h-[45vh] md:h-full shrink-0">
+        <div class="text-center mb-4 md:mb-16 animate-fade-in-down w-full px-4">
             <div class="text-gold-500 font-bold text-xs md:text-sm tracking-[0.5em] mb-2 font-ui uppercase opacity-80">Net Worth</div>
             <div class="relative inline-block">
                 <div class="text-5xl md:text-7xl font-mono font-bold text-white drop-shadow-lg flex items-center justify-center gap-2">
@@ -259,24 +261,24 @@ export const prerender = true;
         </div>
     </main>
 
-    <aside class="w-full md:w-[400px] bg-black/60 border-t md:border-t-0 md:border-l border-gold-600/30 flex flex-col z-30 backdrop-blur-md order-3 h-[50vh] md:h-full">
+    <aside class="w-full md:w-[400px] bg-black/60 border-t md:border-t-0 md:border-l border-gold-600/30 flex flex-col z-30 backdrop-blur-md order-3 h-[35vh] md:h-full pb-[env(safe-area-inset-bottom)]">
         <div class="flex border-b border-white/10 bg-black/40 flex-shrink-0">
             <button id="tab-assets" class="flex-1 py-3 text-sm font-bold text-gold-400 border-b-2 border-gold-500 bg-white/5 font-ui transition-colors" onclick="GAME.switchTab('assets')">
                 <i class="fas fa-building mr-2"></i>Assets
             </button>
             <button id="tab-settings" class="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors font-ui border-b-2 border-transparent" onclick="GAME.switchTab('settings')">
-                <i class="fas fa-sliders-h mr-2"></i>Sound & Settings
+                <i class="fas fa-sliders-h mr-2"></i>Settings
             </button>
         </div>
 
-        <button onclick="GAME.showLeaderboard()" class="w-full mt-2 mx-3 py-2 text-xs font-bold text-gold-500 border border-gold-600/30 rounded bg-black/40 hover:bg-gold-600/20 transition-all font-mono uppercase tracking-widest">
+        <button onclick="GAME.showLeaderboard()" class="w-full mt-2 mx-3 py-2 text-xs font-bold text-gold-500 border border-gold-600/30 rounded bg-black/40 hover:bg-gold-600/20 transition-all font-mono uppercase tracking-widest flex-shrink-0">
             <i class="fas fa-trophy mr-2"></i>Global Ranking
         </button>
 
-        <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2" style="min-height: 0;">
+        <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2 pb-24" style="min-height: 0;">
         </div>
 
-        <div id="settings-view" class="hidden flex-1 overflow-y-auto custom-scroll p-6 space-y-6">
+        <div id="settings-view" class="hidden flex-1 overflow-y-auto custom-scroll p-6 space-y-6 pb-24">
             <div class="text-center mb-6">
                 <h3 class="font-casino text-2xl text-white mb-1">Casino Atmosphere</h3>
                 <p class="text-xs text-slate-400">Configure your audio experience</p>
@@ -420,7 +422,15 @@ export const prerender = true;
             FPS: 60,
             PRESTIGE_BONUS_PER_CHIP: 0.05,
             MILESTONE_STEP: 25,
-            // Defined sequentially for the UI list
+            // Classic Vegas Casino Chip Palette
+            CHIP_PALETTE: [
+                { hex: '#F4F4F2', name: 'White' },  // White
+                { hex: '#C62828', name: 'Red' },    // Red
+                { hex: '#1565C0', name: 'Blue' },   // Blue
+                { hex: '#2E7D32', name: 'Green' },  // Green
+                { hex: '#1C1C1C', name: 'Black' },  // Black
+                { hex: '#6A1B9A', name: 'Purple' }  // Purple
+            ],
             BUILDINGS: [
                 { id: 'clicker', name: 'Loaded Dice', icon: 'fa-dice', baseCost: 15, baseInc: 1, type: 'active', desc: '+Click Power' },
                 { id: 'slot', name: 'Slot Machine', icon: 'fa-gamepad', baseCost: 100, baseInc: 5, type: 'passive', desc: 'Auto Cash' },
@@ -441,7 +451,7 @@ export const prerender = true;
                 prestigeChips: 0,
                 startTime: Date.now(),
                 lastSaveTime: Date.now(),
-                settings: { music: true, sfx: true },
+                settings: { music: false, sfx: true },
                 buildingCounts: {}
             },
 
@@ -458,9 +468,8 @@ export const prerender = true;
                     }
                 });
                 
-                // Initialize default settings if missing from old save
-                if (!this.state.settings) this.state.settings = { music: true, sfx: true };
-                if (typeof this.state.settings.music === 'undefined') this.state.settings.music = true;
+                if (!this.state.settings) this.state.settings = { music: false, sfx: true };
+                if (typeof this.state.settings.music === 'undefined') this.state.settings.music = false;
                 if (typeof this.state.settings.sfx === 'undefined') this.state.settings.sfx = true;
 
                 this.setupUI();
@@ -665,11 +674,8 @@ export const prerender = true;
             },
 
             clickMain(e) {
-                // Ensure music starts on first interaction if enabled
                 if (this.state.settings.music && this.bgm && this.bgm.paused) {
-                    this.bgm.play()
-                        .then(() => console.log('[BGM] Started playing on user interaction'))
-                        .catch(err => console.error('[BGM] Failed to play on interaction:', err));
+                    this.bgm.play().catch(e => {});
                 }
 
                 const power = this.getClickPower();
@@ -679,6 +685,20 @@ export const prerender = true;
                 btn.classList.remove('active');
                 void btn.offsetWidth;
                 btn.classList.add('active');
+
+                // --- NEW: COLOR RANDOMIZATION ---
+                const randomColor = CONFIG.CHIP_PALETTE[Math.floor(Math.random() * CONFIG.CHIP_PALETTE.length)];
+                
+                // Darken logic for gradient
+                const baseColor = randomColor.hex;
+                // Simple CSS filter or we can apply it directly to children
+                const chipInner = btn.querySelector('.chip-inner');
+                
+                // Apply to main chip (Radial Gradient)
+                // We fake a darker shade by mixing black
+                btn.style.background = `radial-gradient(circle at 30% 30%, ${baseColor}, black)`;
+                chipInner.style.background = baseColor;
+                chipInner.style.borderColor = (randomColor.name === 'White') ? '#111' : '#fcd34d'; // Invert border for white chip
                 
                 let x, y;
                 if (e.type === 'keydown') {
@@ -804,9 +824,22 @@ export const prerender = true;
             updateUI() {
                 document.getElementById('cash-display').textContent = this.formatNumber(this.state.cash);
                 document.getElementById('cps-display').textContent = this.formatNumber(this.getCPS());
-                document.getElementById('prestige-display').textContent = this.state.prestigeChips;
-                document.getElementById('bonus-display').textContent = (this.state.prestigeChips * CONFIG.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0);
-                document.getElementById('time-display').textContent = this.formatTime(Date.now() - this.state.startTime);
+                
+                const pDisplay = document.getElementById('prestige-display');
+                if(pDisplay) pDisplay.textContent = this.state.prestigeChips;
+                
+                const bDisplay = document.getElementById('bonus-display');
+                if(bDisplay) bDisplay.textContent = (this.state.prestigeChips * CONFIG.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0);
+                
+                // Mobile displays
+                const pDisplayMob = document.getElementById('prestige-display-mobile');
+                if(pDisplayMob) pDisplayMob.textContent = (this.state.prestigeChips * CONFIG.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0);
+                
+                const tDisplay = document.getElementById('time-display');
+                const tDisplayMob = document.getElementById('time-display-mobile');
+                const timeStr = this.formatTime(Date.now() - this.state.startTime);
+                if(tDisplay) tDisplay.textContent = timeStr;
+                if(tDisplayMob) tDisplayMob.textContent = timeStr;
 
                 const list = document.getElementById('upgrade-list');
                 if (!list.classList.contains('hidden')) {
@@ -891,10 +924,8 @@ export const prerender = true;
 
             // --- AUDIO SYSTEM ---
             setupAudio() {
-                // SFX Context
                 this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // Load SFX
                 try {
                     const chachingAudio = new Audio('/chaching.mp3');
                     chachingAudio.volume = 0.5;
@@ -903,34 +934,17 @@ export const prerender = true;
                     chachingAudio.load();
                 } catch(e) {}
 
-                // Load Music
                 try {
                     this.bgm = new Audio('/casino-jazz.mp3');
                     this.bgm.loop = true;
-                    this.bgm.volume = 0.2; // Soft background volume
-                    this.bgm.preload = 'auto';
-                    
-                    // Add event listeners for debugging
-                    this.bgm.addEventListener('loadstart', () => console.log('[BGM] Loading started'));
-                    this.bgm.addEventListener('canplay', () => console.log('[BGM] Can play'));
-                    this.bgm.addEventListener('canplaythrough', () => console.log('[BGM] Can play through'));
-                    this.bgm.addEventListener('playing', () => console.log('[BGM] Now playing'));
-                    this.bgm.addEventListener('error', (e) => {
-                        console.error('[BGM] Error loading:', e);
-                        console.error('[BGM] Error details:', this.bgm.error);
-                    });
-                    
-                    // Try to load the audio
-                    this.bgm.load();
+                    this.bgm.volume = 0.2;
                 } catch(e) {
-                    console.error("Music file not found or load failed:", e);
+                    console.log("Music file not found or load failed");
                 }
 
-                // Sync UI with State
                 document.getElementById('music-toggle').checked = this.state.settings.music;
                 document.getElementById('sfx-toggle').checked = this.state.settings.sfx;
 
-                // Try auto-play if enabled (might be blocked by browser)
                 if (this.state.settings.music) {
                     this.playMusic();
                 }
@@ -952,30 +966,12 @@ export const prerender = true;
             },
 
             playMusic() {
-                if (!this.bgm) {
-                    console.log('[BGM] No bgm object available');
-                    return;
-                }
-                
-                console.log('[BGM] Attempting to play. State:', {
-                    paused: this.bgm.paused,
-                    readyState: this.bgm.readyState,
-                    src: this.bgm.src,
-                    error: this.bgm.error
-                });
-                
-                // Browser policy requires user interaction first. 
-                // If this fails, it will likely work on the next click.
+                if (!this.bgm) return;
                 const promise = this.bgm.play();
                 if (promise !== undefined) {
-                    promise
-                        .then(() => {
-                            console.log('[BGM] Successfully started playing');
-                        })
-                        .catch(error => {
-                            console.error('[BGM] Autoplay prevented:', error);
-                            console.log('[BGM] Music will start on next user interaction.');
-                        });
+                    promise.catch(error => {
+                        console.log("Autoplay prevented. Music will start on interaction.");
+                    });
                 }
             },
 
