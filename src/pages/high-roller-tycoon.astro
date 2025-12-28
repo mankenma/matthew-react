@@ -49,19 +49,30 @@
             user-select: none;
         }
         
-        /* Allow scrolling in upgrade list on mobile */
+        /* Mobile scrolling fix - ensure upgrade list is scrollable */
         @media (max-width: 768px) {
-            /* Allow touch scrolling in the upgrade list container */
+            /* Override body touch-action for the aside container */
             aside.order-3 {
-                touch-action: auto !important;
+                touch-action: pan-y !important;
+                position: relative;
                 height: 50vh !important;
                 max-height: 50vh !important;
+                overflow: hidden !important;
             }
+            
+            /* Make the upgrade list scrollable */
             #upgrade-list {
+                position: relative;
+                height: 100% !important;
+                max-height: 100% !important;
+                overflow-y: scroll !important;
+                overflow-x: hidden !important;
+                -webkit-overflow-scrolling: touch !important;
                 touch-action: pan-y !important;
-                -webkit-overflow-scrolling: touch;
-                overscroll-behavior: contain;
-                max-height: 100%;
+                overscroll-behavior-y: contain;
+                /* Force hardware acceleration for smooth scrolling */
+                transform: translateZ(0);
+                will-change: scroll-position;
             }
         }
 
@@ -246,7 +257,7 @@
         </div>
     </main>
 
-    <aside class="w-full md:w-[400px] bg-black/60 border-t md:border-t-0 md:border-l border-gold-600/30 flex flex-col z-30 backdrop-blur-md order-3 h-[50vh] md:h-full" style="max-height: 50vh;">
+    <aside class="w-full md:w-[400px] bg-black/60 border-t md:border-t-0 md:border-l border-gold-600/30 flex flex-col z-30 backdrop-blur-md order-3 h-[50vh] md:h-full">
         <div class="flex border-b border-white/10 bg-black/40 flex-shrink-0">
             <button class="flex-1 py-3 text-sm font-bold text-gold-400 border-b-2 border-gold-500 bg-white/5 font-ui">
                 <i class="fas fa-building mr-2"></i>Assets
@@ -256,7 +267,7 @@
             </button>
         </div>
 
-        <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2" style="min-height: 0; max-height: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;">
+        <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2" style="min-height: 0;">
         </div>
     </aside>
 
@@ -347,6 +358,7 @@
                 this.setupAudio();
                 this.setupBackground();
                 this.startGameLoop();
+                this.fixMobileScrolling();
                 
                 const now = Date.now();
                 const diff = (now - this.state.lastSaveTime) / 1000;
@@ -359,6 +371,44 @@
                         document.getElementById('welcome-modal').classList.remove('hidden');
                     }
                 }
+            },
+            
+            fixMobileScrolling() {
+                // Ensure mobile scrolling works properly
+                const recalculate = () => {
+                    if (window.innerWidth <= 768) {
+                        const upgradeList = document.getElementById('upgrade-list');
+                        const aside = upgradeList?.closest('aside.order-3');
+                        
+                        if (aside && upgradeList) {
+                            // Calculate proper height: aside height minus tab bar height
+                            const tabBar = aside.querySelector('.flex.border-b');
+                            const tabBarHeight = tabBar ? tabBar.offsetHeight : 0;
+                            const asideHeight = aside.offsetHeight || window.innerHeight * 0.5;
+                            const availableHeight = asideHeight - tabBarHeight;
+                            
+                            // Set explicit height for scrolling
+                            upgradeList.style.height = `${availableHeight}px`;
+                            upgradeList.style.maxHeight = `${availableHeight}px`;
+                            upgradeList.style.overflowY = 'scroll';
+                            upgradeList.style.overflowX = 'hidden';
+                            upgradeList.style.webkitOverflowScrolling = 'touch';
+                            
+                            // Ensure touch scrolling works
+                            aside.style.touchAction = 'pan-y';
+                            upgradeList.style.touchAction = 'pan-y';
+                        }
+                    }
+                };
+                
+                // Calculate on init
+                setTimeout(recalculate, 100);
+                
+                // Recalculate on resize/orientation change
+                window.addEventListener('resize', recalculate);
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(recalculate, 200);
+                });
             },
 
             getCPS() {
