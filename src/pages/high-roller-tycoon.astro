@@ -48,6 +48,14 @@
             touch-action: none;
             user-select: none;
         }
+        
+        /* Allow scrolling in upgrade list on mobile */
+        @media (max-width: 768px) {
+            #upgrade-list {
+                touch-action: pan-y !important;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
 
         .poker-chip {
             width: 240px;
@@ -230,8 +238,8 @@
         </div>
     </main>
 
-    <aside class="w-full md:w-[400px] bg-black/60 border-t md:border-t-0 md:border-l border-gold-600/30 flex flex-col z-30 backdrop-blur-md order-3 h-[30vh] md:h-full">
-        <div class="flex border-b border-white/10 bg-black/40">
+    <aside class="w-full md:w-[400px] bg-black/60 border-t md:border-t-0 md:border-l border-gold-600/30 flex flex-col z-30 backdrop-blur-md order-3 h-[45vh] md:h-full min-h-[350px] max-h-[50vh] md:max-h-none">
+        <div class="flex border-b border-white/10 bg-black/40 flex-shrink-0">
             <button class="flex-1 py-3 text-sm font-bold text-gold-400 border-b-2 border-gold-500 bg-white/5 font-ui">
                 <i class="fas fa-building mr-2"></i>Assets
             </button>
@@ -240,7 +248,7 @@
             </button>
         </div>
 
-        <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2">
+        <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2" style="min-height: 0; -webkit-overflow-scrolling: touch;">
         </div>
     </aside>
 
