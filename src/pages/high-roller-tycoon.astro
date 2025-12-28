@@ -267,6 +267,10 @@
             </button>
         </div>
 
+        <button onclick="GAME.showLeaderboard()" class="w-full mt-2 mx-3 py-2 text-xs font-bold text-gold-500 border border-gold-600/30 rounded bg-black/40 hover:bg-gold-600/20 transition-all font-mono uppercase tracking-widest">
+            <i class="fas fa-trophy mr-2"></i>Global Ranking
+        </button>
+
         <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2" style="min-height: 0;">
         </div>
     </aside>
@@ -313,6 +317,60 @@
                 $<span id="offline-earnings">0</span>
             </div>
             <button onclick="document.getElementById('welcome-modal').classList.add('hidden')" class="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded">Collect Cash</button>
+        </div>
+    </div>
+
+    <div id="leaderboard-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-gold-500 rounded-lg max-w-md w-full p-6 shadow-neon relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-gold-500/20 blur-3xl rounded-full pointer-events-none"></div>
+
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-casino text-3xl text-white">Global Ranking</h2>
+                <button onclick="document.getElementById('leaderboard-modal').classList.add('hidden')" class="text-slate-400 hover:text-white transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div id="leaderboard-loading" class="text-center py-8">
+                <i class="fas fa-spinner fa-spin text-gold-400 text-3xl mb-4"></i>
+                <p class="text-slate-400">Loading leaderboard...</p>
+            </div>
+
+            <div id="leaderboard-content" class="hidden">
+                <div class="bg-black/50 rounded-lg border border-white/10 mb-4 max-h-64 overflow-y-auto custom-scroll">
+                    <table class="w-full text-sm font-ui">
+                        <thead class="sticky top-0 bg-black/80 border-b border-white/10">
+                            <tr>
+                                <th class="text-left py-2 px-3 text-gold-400 font-bold">Rank</th>
+                                <th class="text-left py-2 px-3 text-gold-400 font-bold">Name</th>
+                                <th class="text-right py-2 px-3 text-gold-400 font-bold">Chips</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-table-body">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="border-t border-white/10 pt-4">
+                    <p class="text-xs text-slate-400 mb-3 text-center">Submit your Prestige Chips score:</p>
+                    <div class="flex gap-2">
+                        <input 
+                            type="text" 
+                            id="leaderboard-name-input" 
+                            placeholder="Your name (max 12 chars)" 
+                            maxlength="12"
+                            class="flex-1 px-3 py-2 bg-black/50 border border-white/20 rounded text-white placeholder-slate-500 focus:outline-none focus:border-gold-500 font-ui text-sm"
+                        />
+                        <button 
+                            onclick="GAME.submitScore()" 
+                            class="px-4 py-2 bg-gradient-to-r from-gold-600 to-gold-500 text-black font-bold hover:brightness-110 shadow-lg transition-all rounded font-ui text-sm"
+                        >
+                            Submit
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2 text-center">Current Chips: <span id="leaderboard-current-chips" class="text-gold-400 font-bold">0</span></p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -868,6 +926,133 @@
                         o.start(now + i*0.1);
                         o.stop(now + i*0.1 + 0.3);
                     });
+                }
+            },
+
+            async showLeaderboard() {
+                const modal = document.getElementById('leaderboard-modal');
+                const loading = document.getElementById('leaderboard-loading');
+                const content = document.getElementById('leaderboard-content');
+                const tableBody = document.getElementById('leaderboard-table-body');
+                const currentChipsDisplay = document.getElementById('leaderboard-current-chips');
+                
+                if (!modal || !loading || !content || !tableBody) return;
+                
+                modal.classList.remove('hidden');
+                loading.classList.remove('hidden');
+                content.classList.add('hidden');
+                
+                // Update current chips display
+                if (currentChipsDisplay) {
+                    currentChipsDisplay.textContent = this.state.prestigeChips;
+                }
+                
+                try {
+                    const response = await fetch('/api/leaderboard');
+                    if (!response.ok) throw new Error('Failed to fetch leaderboard');
+                    
+                    const leaderboard = await response.json();
+                    
+                    tableBody.innerHTML = '';
+                    
+                    if (leaderboard.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-slate-400">No scores yet. Be the first!</td></tr>';
+                    } else {
+                        leaderboard.forEach((entry, index) => {
+                            const row = document.createElement('tr');
+                            row.className = index % 2 === 0 ? 'bg-black/30' : '';
+                            
+                            const rankCell = document.createElement('td');
+                            rankCell.className = 'py-2 px-3 font-bold';
+                            rankCell.textContent = `#${index + 1}`;
+                            if (index === 0) rankCell.className += ' text-gold-400';
+                            else if (index === 1) rankCell.className += ' text-slate-300';
+                            else if (index === 2) rankCell.className += ' text-amber-600';
+                            else rankCell.className += ' text-slate-400';
+                            
+                            const nameCell = document.createElement('td');
+                            nameCell.className = 'py-2 px-3 text-slate-200';
+                            nameCell.textContent = entry.name || 'Anonymous';
+                            
+                            const scoreCell = document.createElement('td');
+                            scoreCell.className = 'py-2 px-3 text-right font-mono text-gold-400 font-bold';
+                            scoreCell.textContent = this.formatNumber(entry.score);
+                            
+                            row.appendChild(rankCell);
+                            row.appendChild(nameCell);
+                            row.appendChild(scoreCell);
+                            tableBody.appendChild(row);
+                        });
+                    }
+                    
+                    loading.classList.add('hidden');
+                    content.classList.remove('hidden');
+                } catch (error) {
+                    console.error('Error loading leaderboard:', error);
+                    tableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-red-400">Failed to load leaderboard. Please try again.</td></tr>';
+                    loading.classList.add('hidden');
+                    content.classList.remove('hidden');
+                }
+            },
+
+            async submitScore() {
+                const nameInput = document.getElementById('leaderboard-name-input');
+                if (!nameInput) return;
+                
+                const name = nameInput.value.trim();
+                const score = this.state.prestigeChips;
+                
+                // Frontend validation
+                if (!name || name.length === 0) {
+                    alert('Please enter your name');
+                    nameInput.focus();
+                    return;
+                }
+                
+                if (name.length > 12) {
+                    alert('Name must be 12 characters or less');
+                    nameInput.focus();
+                    return;
+                }
+                
+                // Validate score is a valid number
+                if (!Number.isFinite(score) || score <= 0 || score > Number.MAX_SAFE_INTEGER) {
+                    alert('Invalid score. Please try again.');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/leaderboard', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ name, score }),
+                    });
+                    
+                    // Handle profanity filter (422 status)
+                    if (response.status === 422) {
+                        alert('That name is not allowed. Please choose another.');
+                        return;
+                    }
+                    
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to submit score');
+                    }
+                    
+                    // Refresh the leaderboard
+                    await this.showLeaderboard();
+                    
+                    // Clear the input
+                    nameInput.value = '';
+                    
+                    // Show success feedback
+                    this.playSfx('win');
+                    this.spawnText(window.innerWidth / 2, window.innerHeight / 2, 'Score Submitted!', true);
+                } catch (error) {
+                    console.error('Error submitting score:', error);
+                    alert('Failed to submit score. Please try again.');
                 }
             }
         };
