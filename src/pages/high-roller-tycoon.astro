@@ -441,7 +441,7 @@ export const prerender = true;
                 prestigeChips: 0,
                 startTime: Date.now(),
                 lastSaveTime: Date.now(),
-                settings: { music: false, sfx: true },
+                settings: { music: true, sfx: true },
                 buildingCounts: {}
             },
 
@@ -459,8 +459,8 @@ export const prerender = true;
                 });
                 
                 // Initialize default settings if missing from old save
-                if (!this.state.settings) this.state.settings = { music: false, sfx: true };
-                if (typeof this.state.settings.music === 'undefined') this.state.settings.music = false;
+                if (!this.state.settings) this.state.settings = { music: true, sfx: true };
+                if (typeof this.state.settings.music === 'undefined') this.state.settings.music = true;
                 if (typeof this.state.settings.sfx === 'undefined') this.state.settings.sfx = true;
 
                 this.setupUI();
