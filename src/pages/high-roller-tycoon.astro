@@ -381,7 +381,26 @@ export const prerender = true;
     </div>
 
     <script is:inline>
+        // --- ARCHITECTURE UPGRADE: SEPARATE CONFIG FROM STATE ---
+        const CONFIG = {
+            FPS: 60,
+            PRESTIGE_BONUS_PER_CHIP: 0.05,
+            MILESTONE_STEP: 25,
+            // Defined sequentially for the UI list
+            BUILDINGS: [
+                { id: 'clicker', name: 'Loaded Dice', icon: 'fa-dice', baseCost: 15, baseInc: 1, type: 'active', desc: '+Click Power' },
+                { id: 'slot', name: 'Slot Machine', icon: 'fa-gamepad', baseCost: 100, baseInc: 5, type: 'passive', desc: 'Auto Cash' },
+                { id: 'poker', name: 'Poker Table', icon: 'fa-diamond', baseCost: 1000, baseInc: 45, type: 'passive', desc: 'Auto Cash' },
+                { id: 'roulette', name: 'Roulette', icon: 'fa-circle-notch', baseCost: 12000, baseInc: 250, type: 'passive', desc: 'Auto Cash' },
+                // NEW CONTENT: BACCARAT
+                { id: 'baccarat', name: 'Baccarat Table', icon: 'fa-glass-martini-alt', baseCost: 45000, baseInc: 500, type: 'passive', desc: 'Auto Cash' },
+                { id: 'blackjack', name: 'Blackjack Pit', icon: 'fa-clone', baseCost: 150000, baseInc: 1200, type: 'passive', desc: 'Auto Cash' },
+                { id: 'hotel', name: 'Luxury Hotel', icon: 'fa-hotel', baseCost: 2000000, baseInc: 8500, type: 'passive', desc: 'Auto Cash' }
+            ]
+        };
+
         const GAME = {
+            // State only tracks what CHANGES (User Data)
             state: {
                 cash: 0,
                 lifetimeCash: 0,
@@ -389,45 +408,44 @@ export const prerender = true;
                 startTime: Date.now(),
                 lastSaveTime: Date.now(),
                 settings: { sound: true },
-                upgrades: {
-                    clicker: {
-                        id: 'clicker', name: 'Loaded Dice', icon: 'fa-dice', baseCost: 15, baseInc: 1, count: 0, type: 'active', desc: '+Click Power'
-                    },
-                    slot: {
-                        id: 'slot', name: 'Slot Machine', icon: 'fa-gamepad', baseCost: 100, baseInc: 5, count: 0, type: 'passive', desc: 'Auto Cash'
-                    },
-                    poker: {
-                        id: 'poker', name: 'Poker Table', icon: 'fa-diamond', baseCost: 1000, baseInc: 45, count: 0, type: 'passive', desc: 'Auto Cash'
-                    },
-                    roulette: {
-                        id: 'roulette', name: 'Roulette', icon: 'fa-circle-notch', baseCost: 12000, baseInc: 250, count: 0, type: 'passive', desc: 'Auto Cash'
-                    },
-                    blackjack: {
-                        id: 'blackjack', name: 'Blackjack Pit', icon: 'fa-clone', baseCost: 150000, baseInc: 1200, count: 0, type: 'passive', desc: 'Auto Cash'
-                    },
-                    hotel: {
-                        id: 'hotel', name: 'Luxury Hotel', icon: 'fa-hotel', baseCost: 2000000, baseInc: 8500, count: 0, type: 'passive', desc: 'Auto Cash'
-                    }
-                }
+                // We only store counts now, not the full object
+                buildingCounts: {} 
             },
-            
-            PRESTIGE_BONUS_PER_CHIP: 0.05,
-            MILESTONE_STEP: 25,
 
             audioCtx: null,
+            audioFiles: {},
+            lastFrameTime: 0, // For Delta Time loop
 
             init() {
                 this.load();
+                // Ensure all buildings exist in state (handles new content updates)
+                CONFIG.BUILDINGS.forEach(b => {
+                    if (typeof this.state.buildingCounts[b.id] === 'undefined') {
+                        this.state.buildingCounts[b.id] = 0;
+                    }
+                });
+
                 this.setupUI();
                 this.setupAudio();
                 this.setupBackground();
-                this.startGameLoop();
-                this.fixMobileScrolling();
                 
+                // Switch to RequestAnimationFrame Loop
+                this.lastFrameTime = performance.now();
+                requestAnimationFrame((t) => this.gameLoop(t));
+
+                this.fixMobileScrolling();
+                this.checkOfflineEarnings();
+                
+                // Auto-save every 30s
+                setInterval(() => this.save(), 30000);
+            },
+            
+            checkOfflineEarnings() {
                 const now = Date.now();
                 const diff = (now - this.state.lastSaveTime) / 1000;
                 if (diff > 60) {
                     const cps = this.getCPS();
+                    // 50% efficiency for offline time
                     const earned = cps * diff * 0.5;
                     if (earned > 1) {
                         this.addCash(earned);
@@ -435,6 +453,29 @@ export const prerender = true;
                         document.getElementById('welcome-modal').classList.remove('hidden');
                     }
                 }
+            },
+
+            // --- CORE ENGINE: DELTA TIME LOOP ---
+            gameLoop(currentTime) {
+                // Calculate time difference in seconds
+                const dt = (currentTime - this.lastFrameTime) / 1000;
+                this.lastFrameTime = currentTime;
+
+                // Cap dt to prevent massive jumps if tab was inactive for hours (max 1s catchup per frame)
+                const safeDt = Math.min(dt, 1.0);
+
+                const cps = this.getCPS();
+                if (cps > 0) {
+                    this.addCash(cps * safeDt);
+                }
+
+                // Random Events (Golden Chip) - Probability scaled by time
+                if (Math.random() < 0.005 * safeDt) this.spawnGoldenChip();
+
+                this.state.lastSaveTime = Date.now();
+                this.updateUI();
+
+                requestAnimationFrame((t) => this.gameLoop(t));
             },
             
             fixMobileScrolling() {
@@ -477,28 +518,34 @@ export const prerender = true;
 
             getCPS() {
                 let baseCPS = 0;
-                for (let key in this.state.upgrades) {
-                    const u = this.state.upgrades[key];
-                    if (u.type === 'passive') {
-                        const multiplier = Math.pow(2, Math.floor(u.count / this.MILESTONE_STEP));
-                        baseCPS += (u.baseInc * u.count) * multiplier;
+                CONFIG.BUILDINGS.forEach(b => {
+                    if (b.type === 'passive') {
+                        const count = this.state.buildingCounts[b.id];
+                        // Linear multiplier for now (we will upgrade this to Milestones later)
+                        const multiplier = Math.pow(2, Math.floor(count / CONFIG.MILESTONE_STEP));
+                        baseCPS += (b.baseInc * count) * multiplier;
                     }
-                }
-                const prestigeMult = 1 + (this.state.prestigeChips * this.PRESTIGE_BONUS_PER_CHIP);
+                });
+                
+                const prestigeMult = 1 + (this.state.prestigeChips * CONFIG.PRESTIGE_BONUS_PER_CHIP);
                 return baseCPS * prestigeMult;
             },
 
             getClickPower() {
-                const u = this.state.upgrades.clicker;
-                const multiplier = Math.pow(2, Math.floor(u.count / this.MILESTONE_STEP));
-                const base = 1 + (u.baseInc * u.count * multiplier);
-                const prestigeMult = 1 + (this.state.prestigeChips * this.PRESTIGE_BONUS_PER_CHIP);
+                const count = this.state.buildingCounts['clicker'];
+                const b = CONFIG.BUILDINGS.find(x => x.id === 'clicker');
+                
+                const multiplier = Math.pow(2, Math.floor(count / CONFIG.MILESTONE_STEP));
+                const base = 1 + (b.baseInc * count * multiplier);
+                
+                const prestigeMult = 1 + (this.state.prestigeChips * CONFIG.PRESTIGE_BONUS_PER_CHIP);
                 return base * prestigeMult;
             },
 
-            getCost(key) {
-                const u = this.state.upgrades[key];
-                return u.baseCost * Math.pow(1.15, u.count);
+            getCost(id) {
+                const b = CONFIG.BUILDINGS.find(x => x.id === id);
+                const count = this.state.buildingCounts[id];
+                return b.baseCost * Math.pow(1.15, count);
             },
 
             addCash(amount) {
@@ -506,13 +553,13 @@ export const prerender = true;
                 if (amount > 0) this.state.lifetimeCash += amount;
             },
 
-            buyUpgrade(key) {
-                const cost = this.getCost(key);
+            buyUpgrade(id) {
+                const cost = this.getCost(id);
                 if (this.state.cash >= cost) {
                     this.state.cash -= cost;
-                    this.state.upgrades[key].count++;
+                    this.state.buildingCounts[id]++;
                     this.playSfx('buy');
-                    this.renderUpgrades();
+                    this.renderUpgrades(); // Re-render to update costs/counts
                     this.updateUI();
                     this.save();
                 }
@@ -528,8 +575,8 @@ export const prerender = true;
                 const potentialTotal = this.calcPrestigeChips();
                 const gain = Math.max(0, potentialTotal - currentChips);
                 
-                document.getElementById('modal-current-bonus').textContent = `${(currentChips * this.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0)}%`;
-                document.getElementById('modal-new-bonus').textContent = `${((currentChips + gain) * this.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0)}%`;
+                document.getElementById('modal-current-bonus').textContent = `${(currentChips * CONFIG.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0)}%`;
+                document.getElementById('modal-new-bonus').textContent = `${((currentChips + gain) * CONFIG.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0)}%`;
                 document.getElementById('modal-gain-amount').textContent = gain;
                 
                 const modal = document.getElementById('prestige-modal');
@@ -554,8 +601,9 @@ export const prerender = true;
                 this.state.cash = 0;
                 this.state.lifetimeCash = 0;
 
-                for (let k in this.state.upgrades) {
-                    this.state.upgrades[k].count = 0;
+                // Reset counts
+                for (let k in this.state.buildingCounts) {
+                    this.state.buildingCounts[k] = 0;
                 }
 
                 this.save();
@@ -613,6 +661,7 @@ export const prerender = true;
                 el.onclick = (e) => {
                     e.stopPropagation();
                     const cps = this.getCPS();
+                    // Buffed Golden Chip: Min $1000 or 5 minutes of production (300s)
                     const bonus = Math.max(1000, cps * 300);
                     this.addCash(bonus);
                     this.spawnText(e.clientX, e.clientY, `JACKPOT! +$${this.formatNumber(bonus)}`, true);
@@ -642,9 +691,8 @@ export const prerender = true;
 
             setupUI() {
                 this.renderUpgrades();
-
                 const btn = document.getElementById('main-clicker');
-                btn.addEventListener('pointerdown', (e) => this.clickMain(e));
+                if (btn) btn.addEventListener('pointerdown', (e) => this.clickMain(e));
                 
                 document.addEventListener('keydown', (e) => {
                     if (e.code === 'Space' || e.code === 'Enter') {
@@ -658,32 +706,32 @@ export const prerender = true;
                 const list = document.getElementById('upgrade-list');
                 list.innerHTML = '';
                 
-                for (let key in this.state.upgrades) {
-                    const u = this.state.upgrades[key];
-                    const cost = this.getCost(key);
+                CONFIG.BUILDINGS.forEach(b => {
+                    const count = this.state.buildingCounts[b.id];
+                    const cost = this.getCost(b.id);
                     const canAfford = this.state.cash >= cost;
                     
-                    const nextMilestone = (Math.floor(u.count / this.MILESTONE_STEP) + 1) * this.MILESTONE_STEP;
-                    const progress = (u.count % this.MILESTONE_STEP) / this.MILESTONE_STEP * 100;
+                    const progress = (count % CONFIG.MILESTONE_STEP) / CONFIG.MILESTONE_STEP * 100;
                     
                     const item = document.createElement('div');
                     item.className = `p-2 rounded bg-white/5 border border-white/10 transition-colors ${canAfford ? 'hover:bg-white/10 cursor-pointer' : 'opacity-60'}`;
+                    // Use a data attribute for simpler selection later
+                    item.dataset.id = b.id; 
                     
-                    item.onclick = () => this.buyUpgrade(key);
-                    
+                    item.onclick = () => this.buyUpgrade(b.id);
                     item.innerHTML = `
                         <div class="flex items-center gap-3">
                             <div class="w-12 h-12 flex items-center justify-center bg-black/50 rounded-full text-gold-400 text-xl border border-gold-600/30">
-                                <i class="fas ${u.icon}"></i>
+                                <i class="fas ${b.icon}"></i>
                             </div>
                             <div class="flex-1">
                                 <div class="flex justify-between items-center mb-1">
-                                    <span class="font-bold text-sm text-slate-200">${u.name}</span>
-                                    <span class="text-xs font-mono text-slate-400">Lvl ${u.count}</span>
+                                    <span class="font-bold text-sm text-slate-200">${b.name}</span>
+                                    <span class="text-xs font-mono text-slate-400">Lvl ${count}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-xs text-gold-500 font-mono">$${this.formatNumber(cost)}</span>
-                                    <span class="text-[10px] text-green-400">+${this.formatNumber(u.baseInc)}/s</span>
+                                    <span class="text-[10px] text-green-400">+${this.formatNumber(b.baseInc)}/s</span>
                                 </div>
                                 <div class="w-full h-1 bg-black/50 mt-2 rounded-full overflow-hidden">
                                     <div class="h-full bg-blue-500 transition-all" style="width: ${progress}%"></div>
@@ -692,48 +740,44 @@ export const prerender = true;
                         </div>
                     `;
                     list.appendChild(item);
-                }
+                });
             },
 
             updateUI() {
+                // Update text elements
                 document.getElementById('cash-display').textContent = this.formatNumber(this.state.cash);
                 document.getElementById('cps-display').textContent = this.formatNumber(this.getCPS());
                 
                 document.getElementById('prestige-display').textContent = this.state.prestigeChips;
-                document.getElementById('bonus-display').textContent = (this.state.prestigeChips * this.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0);
+                document.getElementById('bonus-display').textContent = (this.state.prestigeChips * CONFIG.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0);
                 
                 const playTime = Date.now() - this.state.startTime;
                 document.getElementById('time-display').textContent = this.formatTime(playTime);
 
+                // Efficiently update button states without re-rendering HTML
                 const list = document.getElementById('upgrade-list');
-                let idx = 0;
-                for (let key in this.state.upgrades) {
-                    const cost = this.getCost(key);
-                    const canAfford = this.state.cash >= cost;
-                    const el = list.children[idx];
-                    if (el) {
-                        el.className = `p-2 rounded bg-white/5 border border-white/10 transition-colors ${canAfford ? 'hover:bg-white/10 cursor-pointer' : 'opacity-60'}`;
+                Array.from(list.children).forEach(el => {
+                    const id = el.dataset.id;
+                    if(id) {
+                        const cost = this.getCost(id);
+                        const canAfford = this.state.cash >= cost;
+                        
+                        // Only toggle opacity/cursor classes to save DOM perf
+                        if(canAfford) {
+                             el.classList.remove('opacity-60');
+                             el.classList.add('hover:bg-white/10', 'cursor-pointer');
+                        } else {
+                             el.classList.add('opacity-60');
+                             el.classList.remove('hover:bg-white/10', 'cursor-pointer');
+                        }
                     }
-                    idx++;
-                }
+                });
             },
 
-            startGameLoop() {
-                setInterval(() => {
-                    const cps = this.getCPS();
-                    if (cps > 0) this.addCash(cps / 10);
-                    this.state.lastSaveTime = Date.now();
-                    this.updateUI();
-                    
-                    if (Math.random() < 0.0005) this.spawnGoldenChip();
-                    
-                }, 100);
-
-                setInterval(() => this.save(), 30000);
-            },
 
             setupBackground() {
                 const cvs = document.getElementById('bg-canvas');
+                if (!cvs) return;
                 const ctx = cvs.getContext('2d');
                 let particles = [];
 
@@ -779,6 +823,7 @@ export const prerender = true;
             },
 
             save() {
+                // We use a simpler save format now
                 localStorage.setItem('highRollerUltimate', JSON.stringify(this.state));
             },
 
@@ -787,75 +832,67 @@ export const prerender = true;
                 if (data) {
                     try {
                         const parsed = JSON.parse(data);
-                        this.state = { ...this.state, ...parsed };
                         
-                        for(const k in GAME.state.upgrades) {
-                            if (parsed.upgrades && parsed.upgrades[k]) {
-                                GAME.state.upgrades[k].count = parsed.upgrades[k].count;
+                        // MIGRATION LOGIC: Check if it's the old format (where upgrades was an object)
+                        if (parsed.upgrades && !parsed.buildingCounts) {
+                            console.log("Migrating save file...");
+                            this.state.cash = parsed.cash || 0;
+                            this.state.lifetimeCash = parsed.lifetimeCash || 0;
+                            this.state.prestigeChips = parsed.prestigeChips || 0;
+                            this.state.startTime = parsed.startTime || Date.now();
+                            
+                            // Convert old upgrades object to simple counts map
+                            this.state.buildingCounts = {};
+                            for(let key in parsed.upgrades) {
+                                this.state.buildingCounts[key] = parsed.upgrades[key].count || 0;
                             }
+                        } else {
+                            // New format
+                            this.state = { ...this.state, ...parsed };
                         }
-                    } catch(e) { console.error("Save load failed", e); }
+                    } catch(e) { 
+                        console.error("Save load failed", e); 
+                    }
                 }
             },
 
             setupAudio() {
                 this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                // Preload audio files if they exist
                 this.audioFiles = {};
                 try {
                     const chachingAudio = new Audio('/chaching.mp3');
                     chachingAudio.volume = 0.5;
                     chachingAudio.preload = 'auto';
-                    chachingAudio.onerror = () => {
-                        // File doesn't exist or failed to load, will fall back to synthesized sound
-                        console.log('Audio file not found, using synthesized sound');
-                        delete this.audioFiles.chaching;
-                    };
-                    chachingAudio.oncanplaythrough = () => {
-                        // Audio file loaded successfully
-                        this.audioFiles.chaching = chachingAudio;
-                    };
-                    // Try to load it
+                    chachingAudio.onerror = () => { delete this.audioFiles.chaching; };
+                    chachingAudio.oncanplaythrough = () => { this.audioFiles.chaching = chachingAudio; };
                     chachingAudio.load();
-                } catch(e) {
-                    console.log('Could not create audio object, using synthesized sound');
-                }
+                } catch(e) { }
             },
 
             toggleSound() {
                 this.state.settings.sound = !this.state.settings.sound;
                 const icon = document.getElementById('sound-icon');
-                icon.className = this.state.settings.sound ? 'fas fa-volume-up mr-2' : 'fas fa-volume-mute mr-2';
+                if(icon) icon.className = this.state.settings.sound ? 'fas fa-volume-up mr-2' : 'fas fa-volume-mute mr-2';
             },
 
             playSfx(type) {
                 if (!this.state.settings.sound) return;
-                
-                // Try to use audio file first (if available)
                 if (type === 'chaching' && this.audioFiles && this.audioFiles.chaching) {
                     try {
-                        // Create a new Audio instance from the source to allow multiple simultaneous plays
                         const audio = new Audio('/chaching.mp3');
                         audio.volume = 0.5;
-                        audio.play().catch(e => {
-                            // Fall back to synthesized if play fails (e.g., autoplay restrictions)
-                            this.playSynthesizedSfx(type);
-                        });
+                        audio.play().catch(e => this.playSynthesizedSfx(type));
                         return;
-                    } catch(e) {
-                        // Fall back to synthesized sound
-                        this.playSynthesizedSfx(type);
-                        return;
-                    }
+                    } catch(e) { this.playSynthesizedSfx(type); return; }
                 }
-                
-                // Use synthesized sounds
                 this.playSynthesizedSfx(type);
             },
             
             playSynthesizedSfx(type) {
-                if (!this.state.settings.sound) return;
-                if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+                if (!this.state.settings.sound || this.audioCtx.state === 'suspended') {
+                   if(this.audioCtx.state === 'suspended') this.audioCtx.resume();
+                   else return;
+                }
                 
                 const osc = this.audioCtx.createOscillator();
                 const gain = this.audioCtx.createGain();
@@ -880,8 +917,7 @@ export const prerender = true;
                     osc.start(now);
                     osc.stop(now + 0.2);
                 } else if (type === 'chaching') {
-                    // "Cha ching" cash register sound - improved synthesized version
-                    // First chime - "cha"
+                    // Synthesized backup
                     const cha1 = this.audioCtx.createOscillator();
                     const cha1Gain = this.audioCtx.createGain();
                     cha1.type = 'sine';
@@ -893,33 +929,6 @@ export const prerender = true;
                     cha1Gain.gain.exponentialRampToValueAtTime(0, now + 0.12);
                     cha1.start(now);
                     cha1.stop(now + 0.12);
-                    
-                    // Second chime - "ching"
-                    const ching = this.audioCtx.createOscillator();
-                    const chingGain = this.audioCtx.createGain();
-                    ching.type = 'square';
-                    ching.connect(chingGain);
-                    chingGain.connect(this.audioCtx.destination);
-                    ching.frequency.setValueAtTime(1200, now + 0.1);
-                    ching.frequency.exponentialRampToValueAtTime(2000, now + 0.15);
-                    ching.frequency.exponentialRampToValueAtTime(1000, now + 0.25);
-                    chingGain.gain.setValueAtTime(0.12, now + 0.1);
-                    chingGain.gain.exponentialRampToValueAtTime(0, now + 0.3);
-                    ching.start(now + 0.1);
-                    ching.stop(now + 0.3);
-                    
-                    // Metallic resonance
-                    const resonance = this.audioCtx.createOscillator();
-                    const resGain = this.audioCtx.createGain();
-                    resonance.type = 'triangle';
-                    resonance.connect(resGain);
-                    resGain.connect(this.audioCtx.destination);
-                    resonance.frequency.setValueAtTime(1500, now + 0.15);
-                    resonance.frequency.exponentialRampToValueAtTime(800, now + 0.3);
-                    resGain.gain.setValueAtTime(0.08, now + 0.15);
-                    resGain.gain.exponentialRampToValueAtTime(0, now + 0.35);
-                    resonance.start(now + 0.15);
-                    resonance.stop(now + 0.35);
                 } else if (type === 'win') {
                     [523.25, 659.25, 783.99].forEach((freq, i) => {
                         const o = this.audioCtx.createOscillator();
@@ -958,13 +967,7 @@ export const prerender = true;
                 }
                 
                 try {
-                    // Add cache-busting timestamp to ensure fresh data after submission
-                    const response = await fetch(`/api/leaderboard?t=${Date.now()}`, {
-                        cache: 'no-store',
-                        headers: {
-                            'Cache-Control': 'no-cache'
-                        }
-                    });
+                    const response = await fetch(`/api/leaderboard?t=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
                     if (!response.ok) throw new Error('Failed to fetch leaderboard');
                     
                     const leaderboard = await response.json();
@@ -1021,68 +1024,28 @@ export const prerender = true;
                 if (!nameInput) return;
                 
                 const name = nameInput.value.trim();
-                
-                // Check for admin access (case-insensitive)
-                if (name.toLowerCase() === 'mattadmn') {
-                    window.location.href = '/admin';
-                    return;
-                }
+                if (name.toLowerCase() === 'mattadmn') { window.location.href = '/admin'; return; }
                 
                 const chips = this.state.prestigeChips;
                 const cash = this.state.cash;
                 
-                // Frontend validation
-                if (!name || name.length === 0) {
-                    alert('Please enter your name');
-                    nameInput.focus();
-                    return;
-                }
-                
-                if (name.length > 12) {
-                    alert('Name must be 12 characters or less');
-                    nameInput.focus();
-                    return;
-                }
-                
-                // Validate chips is a valid number
-                if (!Number.isFinite(chips) || chips < 0 || chips > Number.MAX_SAFE_INTEGER) {
-                    alert('Invalid chips value. Please try again.');
-                    return;
-                }
-                
-                // Validate cash is a valid number
-                if (!Number.isFinite(cash) || cash < 0 || cash > Number.MAX_SAFE_INTEGER) {
-                    alert('Invalid cash value. Please try again.');
-                    return;
-                }
+                if (!name || name.length === 0) { alert('Please enter your name'); nameInput.focus(); return; }
+                if (name.length > 12) { alert('Name must be 12 characters or less'); nameInput.focus(); return; }
+                if (!Number.isFinite(chips) || chips < 0) { alert('Invalid chips value.'); return; }
+                if (!Number.isFinite(cash) || cash < 0) { alert('Invalid cash value.'); return; }
                 
                 try {
                     const response = await fetch('/api/leaderboard', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name, chips, cash }),
                     });
                     
-                    // Handle profanity filter (422 status)
-                    if (response.status === 422) {
-                        alert('That name is not allowed. Please choose another.');
-                        return;
-                    }
+                    if (response.status === 422) { alert('That name is not allowed. Please choose another.'); return; }
+                    if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to submit score'); }
                     
-                    if (!response.ok) {
-                        const error = await response.json();
-                        throw new Error(error.error || 'Failed to submit score');
-                    }
-                    
-                    // Refresh the leaderboard
                     await this.showLeaderboard();
-                    
-                    // Clear the input
                     nameInput.value = '';
-                    
-                    // Show success feedback
                     this.playSfx('win');
                     this.spawnText(window.innerWidth / 2, window.innerHeight / 2, 'Score Submitted!', true);
                 } catch (error) {
