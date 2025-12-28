@@ -394,6 +394,7 @@ export const prerender = true;
                                 <th class="text-left py-2 px-3 text-gold-400 font-bold">Name</th>
                                 <th class="text-right py-2 px-3 text-gold-400 font-bold">Chips</th>
                                 <th class="text-right py-2 px-3 text-gold-400 font-bold">Cash</th>
+                                <th class="text-right py-2 px-3 text-gold-400 font-bold">Time</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboard-table-body">
@@ -760,6 +761,9 @@ export const prerender = true;
             },
 
             formatTime(ms) {
+                if (ms === null || ms === undefined || !Number.isFinite(ms)) {
+                    return '-';
+                }
                 const s = Math.floor(ms / 1000);
                 const h = Math.floor(s / 3600).toString().padStart(2,'0');
                 const m = Math.floor((s % 3600) / 60).toString().padStart(2,'0');
@@ -1067,7 +1071,7 @@ export const prerender = true;
                     const leaderboard = await response.json();
                     tableBody.innerHTML = '';
                     if (leaderboard.length === 0) {
-                        tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400">No scores yet. Be the first!</td></tr>';
+                        tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">No scores yet. Be the first!</td></tr>';
                     } else {
                         leaderboard.forEach((entry, index) => {
                             const row = document.createElement('tr');
@@ -1088,10 +1092,14 @@ export const prerender = true;
                             const cashCell = document.createElement('td');
                             cashCell.className = 'py-2 px-3 text-right font-mono text-green-400 font-bold';
                             cashCell.textContent = '$' + this.formatNumber(entry.cash || 0);
+                            const timeCell = document.createElement('td');
+                            timeCell.className = 'py-2 px-3 text-right font-mono text-blue-400';
+                            timeCell.textContent = this.formatTime(entry.time);
                             row.appendChild(rankCell);
                             row.appendChild(nameCell);
                             row.appendChild(chipsCell);
                             row.appendChild(cashCell);
+                            row.appendChild(timeCell);
                             tableBody.appendChild(row);
                         });
                     }
@@ -1099,7 +1107,7 @@ export const prerender = true;
                     content.classList.remove('hidden');
                 } catch (error) {
                     console.error('Error loading leaderboard:', error);
-                    tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-red-400">Failed to load leaderboard. Please try again.</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-red-400">Failed to load leaderboard. Please try again.</td></tr>';
                     loading.classList.add('hidden');
                     content.classList.remove('hidden');
                 }
@@ -1112,13 +1120,14 @@ export const prerender = true;
                 if (name.toLowerCase() === 'mattadmn') { window.location.href = '/admin'; return; }
                 const chips = this.state.prestigeChips;
                 const cash = this.state.cash;
+                const time = Date.now() - this.state.startTime; // Calculate time played
                 if (!name || name.length === 0) { alert('Please enter your name'); nameInput.focus(); return; }
                 if (name.length > 12) { alert('Name must be 12 characters or less'); nameInput.focus(); return; }
                 try {
                     const response = await fetch('/api/leaderboard', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, chips, cash }),
+                        body: JSON.stringify({ name, chips, cash, time }),
                     });
                     if (response.status === 422) { alert('That name is not allowed. Please choose another.'); return; }
                     if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to submit score'); }

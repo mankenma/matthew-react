@@ -26,7 +26,7 @@ async function getRedis() {
   
   // 1. Check for Upstash (HTTPS)
   if (import.meta.env.UPSTASH_REDIS_REST_URL && import.meta.env.UPSTASH_REDIS_REST_TOKEN) {
-    try {
+  try {
       const { Redis } = await import('@upstash/redis');
       redis = new Redis({
         url: import.meta.env.UPSTASH_REDIS_REST_URL,
@@ -50,13 +50,13 @@ async function getRedis() {
       log('Failed to load Vercel KV', e);
     }
   }
-
+  
   log('Using In-Memory Local Store (Not Persistent)');
   return null;
 }
 
 // --- Local Fallback Store ---
-const localStore = new Map<string, { chips: number; cash: number }>();
+const localStore = new Map<string, { chips: number; cash: number; time: number | null }>();
 
 // --- Core Logic ---
 
@@ -93,42 +93,71 @@ async function getLeaderboard() {
 
       if (parsedResults.length === 0) return [];
 
-      // 2. Fetch Cash (Hash + Fallback)
+      // 2. Fetch Cash and Time (Hash + Fallback) - Parallel fetch
       const names = parsedResults.map(p => p.name);
       const cashMap: Record<string, number> = {};
+      const timeMap: Record<string, number | null> = {};
 
-      // Batch fetch from Hash
-      let hashValues: any[] = [];
+      // Batch fetch Cash from Hash
+      let cashHashValues: any[] = [];
       try {
         if (isUpstash) {
             // Upstash hmget
-            hashValues = await client.hmget('high_roller_cash', ...names);
+            cashHashValues = await client.hmget('high_roller_cash', ...names);
             // If hmget returns an object (key-value), convert to array
-            if (hashValues && !Array.isArray(hashValues) && typeof hashValues === 'object') {
+            if (cashHashValues && !Array.isArray(cashHashValues) && typeof cashHashValues === 'object') {
                  // @ts-ignore
-                 hashValues = names.map(n => hashValues[n] || null);
+                 cashHashValues = names.map(n => cashHashValues[n] || null);
+          }
+        } else {
+            // Fallback loop for Vercel KV if hmget is tricky
+             cashHashValues = await Promise.all(names.map(n => client.get(`cash:${n}`)));
+        }
+      } catch (e) {
+        log('Cash hash fetch failed, ignoring', e);
+        cashHashValues = new Array(names.length).fill(null);
+      }
+
+      // Batch fetch Time from Hash
+      let timeHashValues: any[] = [];
+      try {
+        if (isUpstash) {
+            // Upstash hmget
+            timeHashValues = await client.hmget('high_roller_time', ...names);
+            // If hmget returns an object (key-value), convert to array
+            if (timeHashValues && !Array.isArray(timeHashValues) && typeof timeHashValues === 'object') {
+                 // @ts-ignore
+                 timeHashValues = names.map(n => timeHashValues[n] || null);
             }
         } else {
             // Fallback loop for Vercel KV if hmget is tricky
-             hashValues = await Promise.all(names.map(n => client.get(`cash:${n}`)));
+             timeHashValues = await Promise.all(names.map(n => client.get(`time:${n}`)));
         }
       } catch (e) {
-        log('Hash fetch failed, ignoring', e);
-        hashValues = new Array(names.length).fill(null);
+        log('Time hash fetch failed, ignoring', e);
+        timeHashValues = new Array(names.length).fill(null);
       }
 
-      // Process Cash Results with Individual Fallback
+      // Process Cash and Time Results with Individual Fallback
       await Promise.all(names.map(async (name, index) => {
-        let val = hashValues ? hashValues[index] : null;
-        
-        // If null, try fetching individual legacy key
-        if (val === null || val === undefined) {
+        // Process Cash
+        let cashVal = cashHashValues ? cashHashValues[index] : null;
+        if (cashVal === null || cashVal === undefined) {
             try {
-                val = await client.get(`cash:${name}`);
+                cashVal = await client.get(`cash:${name}`);
             } catch (e) {}
         }
-        
-        cashMap[name] = Number(val || 0);
+        cashMap[name] = Number(cashVal || 0);
+
+        // Process Time
+        let timeVal = timeHashValues ? timeHashValues[index] : null;
+        if (timeVal === null || timeVal === undefined) {
+            try {
+                timeVal = await client.get(`time:${name}`);
+            } catch (e) {}
+        }
+        // Convert to number if present, otherwise null (for backward compatibility)
+        timeMap[name] = timeVal !== null && timeVal !== undefined ? Number(timeVal) : null;
       }));
 
       // 3. Merge & Sort
@@ -136,11 +165,12 @@ async function getLeaderboard() {
         .map(entry => ({
           name: entry.name,
           chips: entry.chips,
-          cash: cashMap[entry.name] || 0
+          cash: cashMap[entry.name] || 0,
+          time: timeMap[entry.name] ?? null
         }))
         .sort((a, b) => (b.chips - a.chips) || (b.cash - a.cash)) // Sort by Chips, then Cash
         .slice(0, 10);
-
+      
     } catch (e) {
       log('Critical Redis Read Error', e);
       return []; // Return empty on crash
@@ -149,7 +179,7 @@ async function getLeaderboard() {
 
   // Local Store Fallback
   return Array.from(localStore.entries())
-    .map(([name, data]) => ({ name, chips: data.chips, cash: data.cash }))
+    .map(([name, data]) => ({ name, chips: data.chips, cash: data.cash, time: data.time ?? null }))
     .sort((a, b) => {
       // Primary sort: chips (descending)
       if (b.chips !== a.chips) {
@@ -161,7 +191,7 @@ async function getLeaderboard() {
     .slice(0, 10);
 }
 
-async function saveScore(name: string, chips: number, cash: number) {
+async function saveScore(name: string, chips: number, cash: number, time: number | null = null) {
   const client = await getRedis();
   const isUpstash = !!import.meta.env.UPSTASH_REDIS_REST_URL;
 
@@ -190,7 +220,7 @@ async function saveScore(name: string, chips: number, cash: number) {
         log('Error reading previous score', e);
       }
 
-      log(`Update Check for ${name}: New(${chips}, $${cash}) vs Old(${currentChips}, $${currentCash})`);
+      log(`Update Check for ${name}: New(${chips}, $${cash}, time: ${time}) vs Old(${currentChips}, $${currentCash})`);
 
       // 2. Determine Update
       // Logic: Update if Chips are higher OR (Chips equal AND Cash higher)
@@ -199,7 +229,7 @@ async function saveScore(name: string, chips: number, cash: number) {
       if (isImprovement) {
         log(`Saving improvement for ${name}`);
         
-        // 3. Write to Redis (Dual Write for Cash safety)
+        // 3. Write to Redis (Dual Write for Cash and Time safety)
         if (isUpstash) {
             // Upstash: ZADD { score, member }
             await client.zadd('high_roller_chips', { score: chips, member: name });
@@ -208,16 +238,29 @@ async function saveScore(name: string, chips: number, cash: number) {
               await client.hset('high_roller_cash', { [name]: cash });
             } catch (e) {
               // Fallback to individual key if hash fails
-              log('Hash write failed, using fallback key', e);
+              log('Cash hash write failed, using fallback key', e);
               await client.set(`cash:${name}`, cash);
+            }
+            // Save time if provided
+            if (time !== null && time !== undefined) {
+              try {
+                await client.hset('high_roller_time', { [name]: time });
+              } catch (e) {
+                log('Time hash write failed, using fallback key', e);
+                await client.set(`time:${name}`, time);
+              }
             }
         } else {
             // Vercel/Standard: ZADD score member
             await client.zadd('high_roller_chips', { score: chips, member: name }, { xx: false, gt: true });
             await client.set(`cash:${name}`, cash); // Fallback key
+            // Save time if provided
+            if (time !== null && time !== undefined) {
+              await client.set(`time:${name}`, time);
+            }
         }
         
-        log(`Successfully saved: ${name} - Chips: ${chips}, Cash: ${cash}`);
+        log(`Successfully saved: ${name} - Chips: ${chips}, Cash: ${cash}, Time: ${time}`);
       } else {
         log(`Score not high enough for ${name}`);
       }
@@ -226,10 +269,10 @@ async function saveScore(name: string, chips: number, cash: number) {
     }
   } else {
     // Local Store Logic
-    const curr = localStore.get(name) || { chips: 0, cash: 0 };
+    const curr = localStore.get(name) || { chips: 0, cash: 0, time: null };
     if (chips > curr.chips || (chips === curr.chips && cash > curr.cash)) {
-      localStore.set(name, { chips, cash });
-      log(`Local store updated: ${name} - Chips: ${chips}, Cash: ${cash}`);
+      localStore.set(name, { chips, cash, time: time ?? null });
+      log(`Local store updated: ${name} - Chips: ${chips}, Cash: ${cash}, Time: ${time}`);
     }
   }
 }
@@ -248,8 +291,8 @@ export const GET: APIRoute = async ({ url }) => {
     
     return new Response(JSON.stringify(data), {
       status: 200,
-      headers: { 
-        'Content-Type': 'application/json', 
+      headers: {
+        'Content-Type': 'application/json',
         'Cache-Control': cacheControl
       }
     });
@@ -283,7 +326,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const { name, chips, cash } = body;
+    const { name, chips, cash, time } = body;
 
     // Validation
     if (!name || typeof name !== 'string') {
@@ -322,11 +365,23 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    await saveScore(trimmedName, Math.floor(chips), Math.floor(cash));
+    // Validate time (optional, but if provided must be valid)
+    let validatedTime: number | null = null;
+    if (time !== undefined && time !== null) {
+      if (!Number.isFinite(time) || time < 0 || time > Number.MAX_SAFE_INTEGER) {
+        return new Response(JSON.stringify({ error: 'Invalid time value' }), { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      validatedTime = Math.floor(time);
+    }
+
+    await saveScore(trimmedName, Math.floor(chips), Math.floor(cash), validatedTime);
     return new Response(JSON.stringify({ success: true }), { 
       status: 200,
-      headers: { 
-        'Content-Type': 'application/json',
+        headers: {
+          'Content-Type': 'application/json',
         'Cache-Control': 'no-cache'
       }
     });
@@ -354,13 +409,23 @@ async function deleteScore(name: string) {
         try {
           await client.hdel('high_roller_cash', name);
         } catch (e) {
-          log('Hash delete failed, trying key', e);
+          log('Cash hash delete failed, trying key', e);
+        }
+        try {
+          await client.hdel('high_roller_time', name);
+        } catch (e) {
+          log('Time hash delete failed, trying key', e);
         }
       }
       
-      // Also remove from fallback key
+      // Also remove from fallback keys
       try {
         await client.del(`cash:${name}`);
+      } catch (e) {
+        // Ignore if key doesn't exist
+      }
+      try {
+        await client.del(`time:${name}`);
       } catch (e) {
         // Ignore if key doesn't exist
       }
