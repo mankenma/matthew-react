@@ -12,6 +12,7 @@
     "@astrojs/react": "^4.4.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@upstash/redis": "^1.36.0",
     "@vercel/kv": "^1.0.1",
     "astro": "^5.16.6",
     "bad-words": "^4.0.0",
