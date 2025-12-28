@@ -1022,8 +1022,8 @@ export const prerender = true;
                 
                 const name = nameInput.value.trim();
                 
-                // Check for admin access
-                if (name.toLowerCase() === 'admin') {
+                // Check for admin access (case-insensitive)
+                if (name.toLowerCase() === 'mattadmn') {
                     window.location.href = '/admin';
                     return;
                 }
