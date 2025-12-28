@@ -54,32 +54,76 @@ function isProfane(name: string): boolean {
 
 // Local development fallback - in-memory store
 // This will be used when Vercel KV is not available (e.g., local development)
-const localStore = new Map<string, number>();
+const localStore = new Map<string, { chips: number; cash: number }>();
 
 // Helper to get leaderboard (tries Redis, falls back to local store)
+// Returns sorted by chips (desc), then cash (desc) on tie
 async function getLeaderboard() {
   const redisClient = await getRedis();
   if (redisClient) {
     try {
-      // Check if it's Upstash Redis (has zrange method with different signature)
+      // Get top players by chips (sorted set)
+      let chipsResults: any[] = [];
       if (typeof redisClient.zrange === 'function' && redisClient.constructor?.name === 'Redis') {
-        // Upstash Redis API - returns array of [member, score, member, score, ...]
-        const result = await redisClient.zrange('high_roller_scores', 0, 9, { rev: true, withScores: true });
-        const leaderboard = [];
-        // Upstash returns as array of alternating member/score pairs
+        // Upstash Redis API
+        const result = await redisClient.zrange('high_roller_chips', 0, 19, { rev: true, withScores: true });
         for (let i = 0; i < result.length; i += 2) {
-          leaderboard.push({ name: result[i], score: Number(result[i + 1]) });
+          chipsResults.push({ name: result[i], chips: Number(result[i + 1]) });
         }
-        return leaderboard;
       } else {
         // Vercel KV API (legacy support)
-        const result = await redisClient.zrange('high_roller_scores', 0, 9, { rev: true, withScores: true });
-        const leaderboard = [];
+        const result = await redisClient.zrange('high_roller_chips', 0, 19, { rev: true, withScores: true });
         for (let i = 0; i < result.length; i += 2) {
-          leaderboard.push({ name: result[i], score: result[i + 1] });
+          chipsResults.push({ name: result[i], chips: result[i + 1] });
         }
-        return leaderboard;
       }
+      
+      // Get cash values for all players (hash)
+      const cashValues: Record<string, number> = {};
+      if (chipsResults.length > 0) {
+        const names = chipsResults.map(r => r.name);
+        if (typeof redisClient.hmget === 'function' && redisClient.constructor?.name === 'Redis') {
+          // Upstash Redis - get cash from hash
+          try {
+            const cashResults = await redisClient.hmget('high_roller_cash', ...names);
+            names.forEach((name, idx) => {
+              cashValues[name] = cashResults && cashResults[idx] !== null ? Number(cashResults[idx]) : 0;
+            });
+          } catch (error) {
+            // If hash doesn't exist or error, set all to 0
+            names.forEach(name => cashValues[name] = 0);
+          }
+        } else {
+          // Vercel KV - try to get cash (if using hash)
+          for (const name of names) {
+            try {
+              const cash = await redisClient.hget('high_roller_cash', name);
+              cashValues[name] = cash !== null && cash !== undefined ? Number(cash) : 0;
+            } catch {
+              cashValues[name] = 0;
+            }
+          }
+        }
+      }
+      
+      // Combine chips and cash, then sort
+      const leaderboard = chipsResults
+        .map(entry => ({
+          name: entry.name,
+          chips: entry.chips,
+          cash: cashValues[entry.name] || 0
+        }))
+        .sort((a, b) => {
+          // Primary sort: chips (descending)
+          if (b.chips !== a.chips) {
+            return b.chips - a.chips;
+          }
+          // Secondary sort: cash (descending) on tie
+          return b.cash - a.cash;
+        })
+        .slice(0, 10);
+      
+      return leaderboard;
     } catch (error) {
       console.error('Redis error, falling back to local store:', error);
     }
@@ -87,27 +131,67 @@ async function getLeaderboard() {
   
   // Fallback to local store (works in development)
   const entries = Array.from(localStore.entries())
-    .map(([name, score]) => ({ name, score }))
-    .sort((a, b) => b.score - a.score)
+    .map(([name, data]) => ({ name, chips: data.chips, cash: data.cash }))
+    .sort((a, b) => {
+      // Primary sort: chips (descending)
+      if (b.chips !== a.chips) {
+        return b.chips - a.chips;
+      }
+      // Secondary sort: cash (descending) on tie
+      return b.cash - a.cash;
+    })
     .slice(0, 10);
   return entries;
 }
 
 // Helper to save score (tries Redis, falls back to local store)
-async function saveScore(name: string, score: number) {
+// Only updates if chips are higher, or chips are equal and cash is higher
+async function saveScore(name: string, chips: number, cash: number) {
   const redisClient = await getRedis();
   if (redisClient) {
     try {
-      // Check if it's Upstash Redis
-      if (typeof redisClient.zadd === 'function' && redisClient.constructor?.name === 'Redis') {
-        // Upstash Redis API - only update if score is greater
-        const current = await redisClient.zscore('high_roller_scores', name);
-        if (current === null || score > Number(current)) {
-          await redisClient.zadd('high_roller_scores', { score, member: name });
+      // Get current values
+      let currentChips = 0;
+      let currentCash = 0;
+      
+      if (typeof redisClient.zscore === 'function' && redisClient.constructor?.name === 'Redis') {
+        // Upstash Redis API
+        const chipsResult = await redisClient.zscore('high_roller_chips', name);
+        currentChips = chipsResult !== null ? Number(chipsResult) : 0;
+        
+        try {
+          const cashResult = await redisClient.hget('high_roller_cash', name);
+          currentCash = cashResult !== null && cashResult !== undefined ? Number(cashResult) : 0;
+        } catch {
+          currentCash = 0;
         }
       } else {
         // Vercel KV API (legacy support)
-        await redisClient.zadd('high_roller_scores', { score, member: name }, { xx: false, gt: true });
+        try {
+          const chipsResult = await redisClient.zscore('high_roller_chips', name);
+          currentChips = chipsResult !== null ? Number(chipsResult) : 0;
+        } catch {}
+        try {
+          const cashResult = await redisClient.hget('high_roller_cash', name);
+          currentCash = cashResult !== null && cashResult !== undefined ? Number(cashResult) : 0;
+        } catch {
+          currentCash = 0;
+        }
+      }
+      
+      // Only update if chips are higher, or chips equal and cash is higher
+      const shouldUpdate = chips > currentChips || (chips === currentChips && cash > currentCash);
+      
+      if (shouldUpdate) {
+        if (typeof redisClient.zadd === 'function' && redisClient.constructor?.name === 'Redis') {
+          // Upstash Redis API
+          await redisClient.zadd('high_roller_chips', { score: chips, member: name });
+          await redisClient.hset('high_roller_cash', { [name]: cash });
+        } else {
+          // Vercel KV API (legacy support)
+          await redisClient.zadd('high_roller_chips', { score: chips, member: name }, { xx: false, gt: true });
+          await redisClient.hset('high_roller_cash', { [name]: cash });
+        }
       }
       return;
     } catch (error) {
@@ -116,9 +200,10 @@ async function saveScore(name: string, score: number) {
   }
   
   // Fallback to local store (works in development)
-  const currentScore = localStore.get(name) || 0;
-  if (score > currentScore) {
-    localStore.set(name, score);
+  const current = localStore.get(name) || { chips: 0, cash: 0 };
+  const shouldUpdate = chips > current.chips || (chips === current.chips && cash > current.cash);
+  if (shouldUpdate) {
+    localStore.set(name, { chips, cash });
   }
 }
 
@@ -168,7 +253,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const { name, score } = body;
+    const { name, chips, cash } = body;
     
     // Validate name
     if (!name || typeof name !== 'string') {
@@ -191,9 +276,19 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Validate score - must be a finite positive number
-    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > Number.MAX_SAFE_INTEGER) {
-      return new Response(JSON.stringify({ error: 'Invalid name or score' }), {
+    // Validate chips - must be a finite non-negative number
+    if (typeof chips !== 'number' || !Number.isFinite(chips) || chips < 0 || chips > Number.MAX_SAFE_INTEGER) {
+      return new Response(JSON.stringify({ error: 'Invalid chips value' }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+
+    // Validate cash - must be a finite non-negative number
+    if (typeof cash !== 'number' || !Number.isFinite(cash) || cash < 0 || cash > Number.MAX_SAFE_INTEGER) {
+      return new Response(JSON.stringify({ error: 'Invalid cash value' }), {
         status: 400,
         headers: {
           'Content-Type': 'application/json',
@@ -211,7 +306,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
     
-    await saveScore(trimmedName, Math.floor(score));
+    await saveScore(trimmedName, Math.floor(chips), Math.floor(cash));
     
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

@@ -344,6 +344,7 @@
                                 <th class="text-left py-2 px-3 text-gold-400 font-bold">Rank</th>
                                 <th class="text-left py-2 px-3 text-gold-400 font-bold">Name</th>
                                 <th class="text-right py-2 px-3 text-gold-400 font-bold">Chips</th>
+                                <th class="text-right py-2 px-3 text-gold-400 font-bold">Cash</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboard-table-body">
@@ -352,7 +353,7 @@
                 </div>
 
                 <div class="border-t border-white/10 pt-4">
-                    <p class="text-xs text-slate-400 mb-3 text-center">Submit your Prestige Chips score:</p>
+                    <p class="text-xs text-slate-400 mb-3 text-center">Submit your score (ranked by Chips, then Cash):</p>
                     <div class="flex gap-2">
                         <input 
                             type="text" 
@@ -368,7 +369,10 @@
                             Submit
                         </button>
                     </div>
-                    <p class="text-xs text-slate-500 mt-2 text-center">Current Chips: <span id="leaderboard-current-chips" class="text-gold-400 font-bold">0</span></p>
+                    <p class="text-xs text-slate-500 mt-2 text-center">
+                        Chips: <span id="leaderboard-current-chips" class="text-gold-400 font-bold">0</span> | 
+                        Cash: <span id="leaderboard-current-cash" class="text-green-400 font-bold">$0</span>
+                    </p>
                 </div>
             </div>
         </div>
@@ -942,9 +946,13 @@
                 loading.classList.remove('hidden');
                 content.classList.add('hidden');
                 
-                // Update current chips display
+                // Update current chips and cash display
                 if (currentChipsDisplay) {
                     currentChipsDisplay.textContent = this.state.prestigeChips;
+                }
+                const currentCashDisplay = document.getElementById('leaderboard-current-cash');
+                if (currentCashDisplay) {
+                    currentCashDisplay.textContent = '$' + this.formatNumber(this.state.cash);
                 }
                 
                 try {
@@ -956,7 +964,7 @@
                     tableBody.innerHTML = '';
                     
                     if (leaderboard.length === 0) {
-                        tableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-slate-400">No scores yet. Be the first!</td></tr>';
+                        tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400">No scores yet. Be the first!</td></tr>';
                     } else {
                         leaderboard.forEach((entry, index) => {
                             const row = document.createElement('tr');
@@ -974,13 +982,18 @@
                             nameCell.className = 'py-2 px-3 text-slate-200';
                             nameCell.textContent = entry.name || 'Anonymous';
                             
-                            const scoreCell = document.createElement('td');
-                            scoreCell.className = 'py-2 px-3 text-right font-mono text-gold-400 font-bold';
-                            scoreCell.textContent = this.formatNumber(entry.score);
+                            const chipsCell = document.createElement('td');
+                            chipsCell.className = 'py-2 px-3 text-right font-mono text-gold-400 font-bold';
+                            chipsCell.textContent = this.formatNumber(entry.chips || 0);
+                            
+                            const cashCell = document.createElement('td');
+                            cashCell.className = 'py-2 px-3 text-right font-mono text-green-400 font-bold';
+                            cashCell.textContent = '$' + this.formatNumber(entry.cash || 0);
                             
                             row.appendChild(rankCell);
                             row.appendChild(nameCell);
-                            row.appendChild(scoreCell);
+                            row.appendChild(chipsCell);
+                            row.appendChild(cashCell);
                             tableBody.appendChild(row);
                         });
                     }
@@ -989,7 +1002,7 @@
                     content.classList.remove('hidden');
                 } catch (error) {
                     console.error('Error loading leaderboard:', error);
-                    tableBody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-red-400">Failed to load leaderboard. Please try again.</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-red-400">Failed to load leaderboard. Please try again.</td></tr>';
                     loading.classList.add('hidden');
                     content.classList.remove('hidden');
                 }
@@ -1000,7 +1013,8 @@
                 if (!nameInput) return;
                 
                 const name = nameInput.value.trim();
-                const score = this.state.prestigeChips;
+                const chips = this.state.prestigeChips;
+                const cash = this.state.cash;
                 
                 // Frontend validation
                 if (!name || name.length === 0) {
@@ -1015,9 +1029,15 @@
                     return;
                 }
                 
-                // Validate score is a valid number
-                if (!Number.isFinite(score) || score <= 0 || score > Number.MAX_SAFE_INTEGER) {
-                    alert('Invalid score. Please try again.');
+                // Validate chips is a valid number
+                if (!Number.isFinite(chips) || chips < 0 || chips > Number.MAX_SAFE_INTEGER) {
+                    alert('Invalid chips value. Please try again.');
+                    return;
+                }
+                
+                // Validate cash is a valid number
+                if (!Number.isFinite(cash) || cash < 0 || cash > Number.MAX_SAFE_INTEGER) {
+                    alert('Invalid cash value. Please try again.');
                     return;
                 }
                 
@@ -1027,7 +1047,7 @@
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ name, score }),
+                        body: JSON.stringify({ name, chips, cash }),
                     });
                     
                     // Handle profanity filter (422 status)
