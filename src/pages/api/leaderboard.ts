@@ -78,26 +78,34 @@ async function getLeaderboard() {
         }
       }
       
-      // Get cash values for all players (hash)
+      // Get cash values for all players
+      // Use individual keys instead of hash for better compatibility
       const cashValues: Record<string, number> = {};
       if (chipsResults.length > 0) {
         const names = chipsResults.map(r => r.name);
         if (typeof redisClient.hmget === 'function' && redisClient.constructor?.name === 'Redis') {
-          // Upstash Redis - get cash from hash
+          // Upstash Redis - try hash first, fallback to individual keys
           try {
             const cashResults = await redisClient.hmget('high_roller_cash', ...names);
             names.forEach((name, idx) => {
               cashValues[name] = cashResults && cashResults[idx] !== null ? Number(cashResults[idx]) : 0;
             });
-          } catch (error) {
-            // If hash doesn't exist or error, set all to 0
-            names.forEach(name => cashValues[name] = 0);
+          } catch {
+            // Fallback to individual keys
+            for (const name of names) {
+              try {
+                const cash = await redisClient.get(`cash:${name}`);
+                cashValues[name] = cash !== null && cash !== undefined ? Number(cash) : 0;
+              } catch {
+                cashValues[name] = 0;
+              }
+            }
           }
         } else {
-          // Vercel KV - try to get cash (if using hash)
+          // Vercel KV - use individual keys (doesn't support hash operations well)
           for (const name of names) {
             try {
-              const cash = await redisClient.hget('high_roller_cash', name);
+              const cash = await redisClient.get(`cash:${name}`);
               cashValues[name] = cash !== null && cash !== undefined ? Number(cash) : 0;
             } catch {
               cashValues[name] = 0;
@@ -159,20 +167,26 @@ async function saveScore(name: string, chips: number, cash: number) {
         const chipsResult = await redisClient.zscore('high_roller_chips', name);
         currentChips = chipsResult !== null ? Number(chipsResult) : 0;
         
+        // Try hash first, fallback to individual key
         try {
           const cashResult = await redisClient.hget('high_roller_cash', name);
           currentCash = cashResult !== null && cashResult !== undefined ? Number(cashResult) : 0;
         } catch {
-          currentCash = 0;
+          try {
+            const cashResult = await redisClient.get(`cash:${name}`);
+            currentCash = cashResult !== null && cashResult !== undefined ? Number(cashResult) : 0;
+          } catch {
+            currentCash = 0;
+          }
         }
       } else {
-        // Vercel KV API (legacy support)
+        // Vercel KV API - use individual keys (doesn't support hash operations)
         try {
           const chipsResult = await redisClient.zscore('high_roller_chips', name);
           currentChips = chipsResult !== null ? Number(chipsResult) : 0;
         } catch {}
         try {
-          const cashResult = await redisClient.hget('high_roller_cash', name);
+          const cashResult = await redisClient.get(`cash:${name}`);
           currentCash = cashResult !== null && cashResult !== undefined ? Number(cashResult) : 0;
         } catch {
           currentCash = 0;
@@ -186,11 +200,17 @@ async function saveScore(name: string, chips: number, cash: number) {
         if (typeof redisClient.zadd === 'function' && redisClient.constructor?.name === 'Redis') {
           // Upstash Redis API
           await redisClient.zadd('high_roller_chips', { score: chips, member: name });
-          await redisClient.hset('high_roller_cash', { [name]: cash });
+          // Try hash first, fallback to individual key
+          try {
+            await redisClient.hset('high_roller_cash', { [name]: cash });
+          } catch {
+            // Fallback to individual key
+            await redisClient.set(`cash:${name}`, cash);
+          }
         } else {
-          // Vercel KV API (legacy support)
+          // Vercel KV API - use individual keys (doesn't support hash operations)
           await redisClient.zadd('high_roller_chips', { score: chips, member: name }, { xx: false, gt: true });
-          await redisClient.hset('high_roller_cash', { [name]: cash });
+          await redisClient.set(`cash:${name}`, cash);
         }
       }
       return;
@@ -314,9 +334,11 @@ export const POST: APIRoute = async ({ request }) => {
         'Content-Type': 'application/json',
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error submitting score:', error);
-    return new Response(JSON.stringify({ error: 'Failed to submit score' }), {
+    // Return more detailed error in development
+    const errorMessage = import.meta.env.DEV ? error?.message || 'Failed to submit score' : 'Failed to submit score';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
