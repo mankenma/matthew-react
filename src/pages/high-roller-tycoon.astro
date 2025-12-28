@@ -958,7 +958,13 @@ export const prerender = true;
                 }
                 
                 try {
-                    const response = await fetch('/api/leaderboard');
+                    // Add cache-busting timestamp to ensure fresh data after submission
+                    const response = await fetch(`/api/leaderboard?t=${Date.now()}`, {
+                        cache: 'no-store',
+                        headers: {
+                            'Cache-Control': 'no-cache'
+                        }
+                    });
                     if (!response.ok) throw new Error('Failed to fetch leaderboard');
                     
                     const leaderboard = await response.json();

@@ -219,22 +219,32 @@ async function saveScore(name: string, chips: number, cash: number) {
     }
   }
   
-  // Fallback to local store (works in development)
+  // Fallback to local store (works in development, but NOT in production serverless functions)
+  // In production, each serverless function invocation has separate memory, so data won't persist
+  console.warn('Redis not configured - using local store fallback. Data will NOT persist in production serverless functions.');
   const current = localStore.get(name) || { chips: 0, cash: 0 };
   const shouldUpdate = chips > current.chips || (chips === current.chips && cash > current.cash);
   if (shouldUpdate) {
     localStore.set(name, { chips, cash });
+    console.log(`Local store updated: ${name}, chips: ${chips}, cash: ${cash}`);
   }
 }
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ url }) => {
   try {
     const leaderboard = await getLeaderboard();
+    
+    // Check if this is a cache-busting request (has timestamp query param)
+    const hasCacheBust = url.searchParams.has('t');
+    const cacheControl = hasCacheBust 
+      ? 'no-cache, no-store, must-revalidate' 
+      : 'public, max-age=5'; // Reduced to 5 seconds for faster updates
+    
     return new Response(JSON.stringify(leaderboard), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=30', // Cache for 30 seconds
+        'Cache-Control': cacheControl,
       },
     });
   } catch (error) {
@@ -328,10 +338,14 @@ export const POST: APIRoute = async ({ request }) => {
     
     await saveScore(trimmedName, Math.floor(chips), Math.floor(cash));
     
+    // Log for debugging (only in production if needed)
+    console.log(`Score saved: ${trimmedName}, chips: ${Math.floor(chips)}, cash: ${Math.floor(cash)}`);
+    
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache', // Don't cache POST responses
       },
     });
   } catch (error: any) {
