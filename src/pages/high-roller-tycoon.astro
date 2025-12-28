@@ -195,7 +195,7 @@ export const prerender = true;
     <canvas id="bg-canvas" class="fixed top-0 left-0 w-full h-full -z-10"></canvas>
 
     <div id="event-container" class="absolute inset-0 pointer-events-none overflow-hidden z-40"></div>
-    <div id="floating-text-container" class="fixed inset-0 pointer-events-none overflow-hidden z-50" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;"></div>
+    <div id="floating-text-container" class="fixed inset-0 pointer-events-none overflow-hidden z-50"></div>
 
     <aside class="w-full md:w-1/4 bg-black/40 border-b md:border-b-0 md:border-r border-gold-600/30 p-4 flex flex-col justify-between z-20 backdrop-blur-sm order-2 md:order-1 h-[20vh] md:h-full">
         <div>
@@ -261,11 +261,11 @@ export const prerender = true;
 
     <aside class="w-full md:w-[400px] bg-black/60 border-t md:border-t-0 md:border-l border-gold-600/30 flex flex-col z-30 backdrop-blur-md order-3 h-[50vh] md:h-full">
         <div class="flex border-b border-white/10 bg-black/40 flex-shrink-0">
-            <button class="flex-1 py-3 text-sm font-bold text-gold-400 border-b-2 border-gold-500 bg-white/5 font-ui">
+            <button id="tab-assets" class="flex-1 py-3 text-sm font-bold text-gold-400 border-b-2 border-gold-500 bg-white/5 font-ui transition-colors" onclick="GAME.switchTab('assets')">
                 <i class="fas fa-building mr-2"></i>Assets
             </button>
-            <button class="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors font-ui" onclick="GAME.toggleSound()">
-                <i id="sound-icon" class="fas fa-volume-up mr-2"></i>Sound
+            <button id="tab-settings" class="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors font-ui border-b-2 border-transparent" onclick="GAME.switchTab('settings')">
+                <i class="fas fa-sliders-h mr-2"></i>Sound & Settings
             </button>
         </div>
 
@@ -274,6 +274,51 @@ export const prerender = true;
         </button>
 
         <div id="upgrade-list" class="flex-1 overflow-y-auto custom-scroll p-3 space-y-2" style="min-height: 0;">
+        </div>
+
+        <div id="settings-view" class="hidden flex-1 overflow-y-auto custom-scroll p-6 space-y-6">
+            <div class="text-center mb-6">
+                <h3 class="font-casino text-2xl text-white mb-1">Casino Atmosphere</h3>
+                <p class="text-xs text-slate-400">Configure your audio experience</p>
+            </div>
+
+            <div class="bg-black/40 p-4 rounded border border-white/10 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gold-600/20 flex items-center justify-center text-gold-400">
+                        <i class="fas fa-music"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-slate-200">Jazz Soundtrack</div>
+                        <div class="text-xs text-slate-500">Smooth casino jazz</div>
+                    </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="music-toggle" class="sr-only peer" onchange="GAME.toggleMusic()">
+                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold-600"></div>
+                </label>
+            </div>
+
+            <div class="bg-black/40 p-4 rounded border border-white/10 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400">
+                        <i class="fas fa-volume-up"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-slate-200">Sound Effects</div>
+                        <div class="text-xs text-slate-500">Chips, cash, and wins</div>
+                    </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="sfx-toggle" class="sr-only peer" onchange="GAME.toggleSfx()">
+                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
+            </div>
+
+             <div class="mt-8 text-center">
+                 <button onclick="GAME.hardReset()" class="text-xs text-red-900/50 hover:text-red-500 transition-colors uppercase tracking-widest font-bold">
+                     <i class="fas fa-skull mr-1"></i> Hard Reset Save
+                 </button>
+            </div>
         </div>
     </aside>
 
@@ -357,22 +402,11 @@ export const prerender = true;
                 <div class="border-t border-white/10 pt-4">
                     <p class="text-xs text-slate-400 mb-3 text-center">Submit your score (ranked by Chips, then Cash):</p>
                     <div class="flex gap-2">
-                        <input 
-                            type="text" 
-                            id="leaderboard-name-input" 
-                            placeholder="Your name (max 12 chars)" 
-                            maxlength="12"
-                            class="flex-1 px-3 py-2 bg-black/50 border border-white/20 rounded text-white placeholder-slate-500 focus:outline-none focus:border-gold-500 font-ui text-sm"
-                        />
-                        <button 
-                            onclick="GAME.submitScore()" 
-                            class="px-4 py-2 bg-gradient-to-r from-gold-600 to-gold-500 text-black font-bold hover:brightness-110 shadow-lg transition-all rounded font-ui text-sm"
-                        >
-                            Submit
-                        </button>
+                        <input type="text" id="leaderboard-name-input" placeholder="Your name (max 12 chars)" maxlength="12" class="flex-1 px-3 py-2 bg-black/50 border border-white/20 rounded text-white placeholder-slate-500 focus:outline-none focus:border-gold-500 font-ui text-sm"/>
+                        <button onclick="GAME.submitScore()" class="px-4 py-2 bg-gradient-to-r from-gold-600 to-gold-500 text-black font-bold hover:brightness-110 shadow-lg transition-all rounded font-ui text-sm">Submit</button>
                     </div>
                     <p class="text-xs text-slate-500 mt-2 text-center">
-                        Chips: <span id="leaderboard-current-chips" class="text-gold-400 font-bold">0</span> | 
+                        Chips: <span id="leaderboard-current-chips" class="text-gold-400 font-bold">0</span> |
                         Cash: <span id="leaderboard-current-cash" class="text-green-400 font-bold">$0</span>
                     </p>
                 </div>
@@ -407,37 +441,65 @@ export const prerender = true;
                 prestigeChips: 0,
                 startTime: Date.now(),
                 lastSaveTime: Date.now(),
-                settings: { sound: true },
-                // We only store counts now, not the full object
-                buildingCounts: {} 
+                settings: { music: false, sfx: true },
+                buildingCounts: {}
             },
 
             audioCtx: null,
             audioFiles: {},
-            lastFrameTime: 0, // For Delta Time loop
+            bgm: null,
+            lastFrameTime: 0,
 
             init() {
                 this.load();
-                // Ensure all buildings exist in state (handles new content updates)
                 CONFIG.BUILDINGS.forEach(b => {
                     if (typeof this.state.buildingCounts[b.id] === 'undefined') {
                         this.state.buildingCounts[b.id] = 0;
                     }
                 });
+                
+                // Initialize default settings if missing from old save
+                if (!this.state.settings) this.state.settings = { music: false, sfx: true };
+                if (typeof this.state.settings.music === 'undefined') this.state.settings.music = false;
+                if (typeof this.state.settings.sfx === 'undefined') this.state.settings.sfx = true;
 
                 this.setupUI();
                 this.setupAudio();
                 this.setupBackground();
                 
-                // Switch to RequestAnimationFrame Loop
                 this.lastFrameTime = performance.now();
                 requestAnimationFrame((t) => this.gameLoop(t));
 
                 this.fixMobileScrolling();
                 this.checkOfflineEarnings();
                 
-                // Auto-save every 30s
                 setInterval(() => this.save(), 30000);
+            },
+
+            // --- TAB SYSTEM ---
+            switchTab(tab) {
+                const assetsTab = document.getElementById('tab-assets');
+                const settingsTab = document.getElementById('tab-settings');
+                const upgradeList = document.getElementById('upgrade-list');
+                const settingsView = document.getElementById('settings-view');
+
+                if (tab === 'assets') {
+                    assetsTab.classList.add('text-gold-400', 'border-gold-500', 'bg-white/5');
+                    assetsTab.classList.remove('text-slate-500', 'border-transparent');
+                    settingsTab.classList.remove('text-gold-400', 'border-gold-500', 'bg-white/5');
+                    settingsTab.classList.add('text-slate-500', 'border-transparent');
+                    
+                    upgradeList.classList.remove('hidden');
+                    settingsView.classList.add('hidden');
+                } else {
+                    settingsTab.classList.add('text-gold-400', 'border-gold-500', 'bg-white/5');
+                    settingsTab.classList.remove('text-slate-500', 'border-transparent');
+                    assetsTab.classList.remove('text-gold-400', 'border-gold-500', 'bg-white/5');
+                    assetsTab.classList.add('text-slate-500', 'border-transparent');
+                    
+                    upgradeList.classList.add('hidden');
+                    settingsView.classList.remove('hidden');
+                }
             },
             
             checkOfflineEarnings() {
@@ -479,41 +541,32 @@ export const prerender = true;
             },
             
             fixMobileScrolling() {
-                // Ensure mobile scrolling works properly
                 const recalculate = () => {
                     if (window.innerWidth <= 768) {
                         const upgradeList = document.getElementById('upgrade-list');
+                        const settingsView = document.getElementById('settings-view');
                         const aside = upgradeList?.closest('aside.order-3');
-                        
-                        if (aside && upgradeList) {
-                            // Calculate proper height: aside height minus tab bar height
+                        if (aside) {
                             const tabBar = aside.querySelector('.flex.border-b');
                             const tabBarHeight = tabBar ? tabBar.offsetHeight : 0;
                             const asideHeight = aside.offsetHeight || window.innerHeight * 0.5;
                             const availableHeight = asideHeight - tabBarHeight;
                             
-                            // Set explicit height for scrolling
-                            upgradeList.style.height = `${availableHeight}px`;
-                            upgradeList.style.maxHeight = `${availableHeight}px`;
-                            upgradeList.style.overflowY = 'scroll';
-                            upgradeList.style.overflowX = 'hidden';
-                            upgradeList.style.webkitOverflowScrolling = 'touch';
-                            
-                            // Ensure touch scrolling works
-                            aside.style.touchAction = 'pan-y';
-                            upgradeList.style.touchAction = 'pan-y';
+                            if(upgradeList) {
+                                upgradeList.style.height = `${availableHeight}px`;
+                                upgradeList.style.maxHeight = `${availableHeight}px`;
+                                upgradeList.style.overflowY = 'scroll';
+                            }
+                            if(settingsView) {
+                                settingsView.style.height = `${availableHeight}px`;
+                                settingsView.style.maxHeight = `${availableHeight}px`;
+                                settingsView.style.overflowY = 'scroll';
+                            }
                         }
                     }
                 };
-                
-                // Calculate on init
                 setTimeout(recalculate, 100);
-                
-                // Recalculate on resize/orientation change
                 window.addEventListener('resize', recalculate);
-                window.addEventListener('orientationchange', () => {
-                    setTimeout(recalculate, 200);
-                });
             },
 
             getCPS() {
@@ -565,6 +618,7 @@ export const prerender = true;
                 }
             },
 
+            // --- HELPERS (Keep Existing) ---
             calcPrestigeChips() {
                 if (this.state.lifetimeCash < 1000000) return 0;
                 return Math.floor(Math.cbrt(this.state.lifetimeCash / 1000000));
@@ -611,6 +665,11 @@ export const prerender = true;
             },
 
             clickMain(e) {
+                // Ensure music starts on first interaction if enabled
+                if (this.state.settings.music && this.bgm && this.bgm.paused) {
+                    this.bgm.play().catch(e => {});
+                }
+
                 const power = this.getClickPower();
                 this.addCash(power);
                 
@@ -657,18 +716,15 @@ export const prerender = true;
                 el.className = 'golden-cookie pointer-events-auto';
                 el.innerHTML = '<i class="fas fa-crown"></i>';
                 el.style.top = `${10 + Math.random() * 80}%`;
-                
                 el.onclick = (e) => {
                     e.stopPropagation();
                     const cps = this.getCPS();
-                    // Buffed Golden Chip: Min $1000 or 5 minutes of production (300s)
                     const bonus = Math.max(1000, cps * 300);
                     this.addCash(bonus);
                     this.spawnText(e.clientX, e.clientY, `JACKPOT! +$${this.formatNumber(bonus)}`, true);
                     this.playSfx('win');
                     el.remove();
                 };
-
                 container.appendChild(el);
                 setTimeout(() => { if(el.parentNode) el.remove(); }, 15000);
             },
@@ -744,34 +800,29 @@ export const prerender = true;
             },
 
             updateUI() {
-                // Update text elements
                 document.getElementById('cash-display').textContent = this.formatNumber(this.state.cash);
                 document.getElementById('cps-display').textContent = this.formatNumber(this.getCPS());
-                
                 document.getElementById('prestige-display').textContent = this.state.prestigeChips;
                 document.getElementById('bonus-display').textContent = (this.state.prestigeChips * CONFIG.PRESTIGE_BONUS_PER_CHIP * 100).toFixed(0);
-                
-                const playTime = Date.now() - this.state.startTime;
-                document.getElementById('time-display').textContent = this.formatTime(playTime);
+                document.getElementById('time-display').textContent = this.formatTime(Date.now() - this.state.startTime);
 
-                // Efficiently update button states without re-rendering HTML
                 const list = document.getElementById('upgrade-list');
-                Array.from(list.children).forEach(el => {
-                    const id = el.dataset.id;
-                    if(id) {
-                        const cost = this.getCost(id);
-                        const canAfford = this.state.cash >= cost;
-                        
-                        // Only toggle opacity/cursor classes to save DOM perf
-                        if(canAfford) {
-                             el.classList.remove('opacity-60');
-                             el.classList.add('hover:bg-white/10', 'cursor-pointer');
-                        } else {
-                             el.classList.add('opacity-60');
-                             el.classList.remove('hover:bg-white/10', 'cursor-pointer');
+                if (!list.classList.contains('hidden')) {
+                    Array.from(list.children).forEach(el => {
+                        const id = el.dataset.id;
+                        if(id) {
+                            const cost = this.getCost(id);
+                            const canAfford = this.state.cash >= cost;
+                            if(canAfford) {
+                                el.classList.remove('opacity-60');
+                                el.classList.add('hover:bg-white/10', 'cursor-pointer');
+                            } else {
+                                el.classList.add('opacity-60');
+                                el.classList.remove('hover:bg-white/10', 'cursor-pointer');
+                            }
                         }
-                    }
-                });
+                    });
+                }
             },
 
 
@@ -780,16 +831,10 @@ export const prerender = true;
                 if (!cvs) return;
                 const ctx = cvs.getContext('2d');
                 let particles = [];
-
-                const resize = () => {
-                    cvs.width = window.innerWidth;
-                    cvs.height = window.innerHeight;
-                };
+                const resize = () => { cvs.width = window.innerWidth; cvs.height = window.innerHeight; };
                 window.addEventListener('resize', resize);
                 resize();
-
                 const suits = ['♠', '♥', '♦', '♣'];
-                
                 for(let i=0; i<40; i++) {
                     particles.push({
                         x: Math.random() * cvs.width,
@@ -800,83 +845,114 @@ export const prerender = true;
                         opacity: 0.05 + Math.random() * 0.1
                     });
                 }
-
                 const animate = () => {
                     ctx.clearRect(0, 0, cvs.width, cvs.height);
-                    
                     particles.forEach(p => {
                         ctx.font = `${p.size}px Arial`;
                         ctx.fillStyle = (p.text === '♥' || p.text === '♦') ? '#ef4444' : '#000000';
                         ctx.globalAlpha = p.opacity;
                         ctx.fillText(p.text, p.x, p.y);
-                        
                         p.y += p.speed;
-                        if (p.y > cvs.height + 50) {
-                            p.y = -50;
-                            p.x = Math.random() * cvs.width;
-                        }
+                        if (p.y > cvs.height + 50) { p.y = -50; p.x = Math.random() * cvs.width; }
                     });
-                    
                     requestAnimationFrame(animate);
                 };
                 animate();
             },
 
-            save() {
-                // We use a simpler save format now
-                localStorage.setItem('highRollerUltimate', JSON.stringify(this.state));
-            },
-
+            save() { localStorage.setItem('highRollerUltimate', JSON.stringify(this.state)); },
             load() {
                 const data = localStorage.getItem('highRollerUltimate');
                 if (data) {
                     try {
                         const parsed = JSON.parse(data);
-                        
-                        // MIGRATION LOGIC: Check if it's the old format (where upgrades was an object)
                         if (parsed.upgrades && !parsed.buildingCounts) {
-                            console.log("Migrating save file...");
                             this.state.cash = parsed.cash || 0;
                             this.state.lifetimeCash = parsed.lifetimeCash || 0;
                             this.state.prestigeChips = parsed.prestigeChips || 0;
                             this.state.startTime = parsed.startTime || Date.now();
-                            
-                            // Convert old upgrades object to simple counts map
                             this.state.buildingCounts = {};
-                            for(let key in parsed.upgrades) {
-                                this.state.buildingCounts[key] = parsed.upgrades[key].count || 0;
-                            }
+                            for(let key in parsed.upgrades) this.state.buildingCounts[key] = parsed.upgrades[key].count || 0;
                         } else {
-                            // New format
                             this.state = { ...this.state, ...parsed };
                         }
-                    } catch(e) { 
-                        console.error("Save load failed", e); 
-                    }
+                    } catch(e) { console.error("Save load failed", e); }
+                }
+            },
+            hardReset() {
+                if(confirm("Are you sure? This deletes your SAVE fully.")) {
+                    localStorage.removeItem('highRollerUltimate');
+                    location.reload();
                 }
             },
 
+
+            // --- AUDIO SYSTEM ---
             setupAudio() {
+                // SFX Context
                 this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                this.audioFiles = {};
+                
+                // Load SFX
                 try {
                     const chachingAudio = new Audio('/chaching.mp3');
                     chachingAudio.volume = 0.5;
-                    chachingAudio.preload = 'auto';
                     chachingAudio.onerror = () => { delete this.audioFiles.chaching; };
                     chachingAudio.oncanplaythrough = () => { this.audioFiles.chaching = chachingAudio; };
                     chachingAudio.load();
-                } catch(e) { }
+                } catch(e) {}
+
+                // Load Music
+                try {
+                    this.bgm = new Audio('/casino-jazz.mp3');
+                    this.bgm.loop = true;
+                    this.bgm.volume = 0.2; // Soft background volume
+                } catch(e) {
+                    console.log("Music file not found or load failed");
+                }
+
+                // Sync UI with State
+                document.getElementById('music-toggle').checked = this.state.settings.music;
+                document.getElementById('sfx-toggle').checked = this.state.settings.sfx;
+
+                // Try auto-play if enabled (might be blocked by browser)
+                if (this.state.settings.music) {
+                    this.playMusic();
+                }
             },
 
-            toggleSound() {
-                this.state.settings.sound = !this.state.settings.sound;
-                const icon = document.getElementById('sound-icon');
-                if(icon) icon.className = this.state.settings.sound ? 'fas fa-volume-up mr-2' : 'fas fa-volume-mute mr-2';
+            toggleMusic() {
+                this.state.settings.music = !this.state.settings.music;
+                if (this.state.settings.music) {
+                    this.playMusic();
+                } else {
+                    if (this.bgm) this.bgm.pause();
+                }
+                this.save();
+            },
+
+            toggleSfx() {
+                this.state.settings.sfx = !this.state.settings.sfx;
+                this.save();
+            },
+
+            playMusic() {
+                if (!this.bgm) return;
+                // Browser policy requires user interaction first. 
+                // If this fails, it will likely work on the next click.
+                const promise = this.bgm.play();
+                if (promise !== undefined) {
+                    promise.catch(error => {
+                        console.log("Autoplay prevented. Music will start on interaction.");
+                    });
+                }
             },
 
             playSfx(type) {
-                if (!this.state.settings.sound) return;
+                if (!this.state.settings.sfx) return;
+                
+                // Resume Context if suspended (browser policy)
+                if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+
                 if (type === 'chaching' && this.audioFiles && this.audioFiles.chaching) {
                     try {
                         const audio = new Audio('/chaching.mp3');
@@ -889,7 +965,7 @@ export const prerender = true;
             },
             
             playSynthesizedSfx(type) {
-                if (!this.state.settings.sound || this.audioCtx.state === 'suspended') {
+                if (!this.state.settings.sfx || this.audioCtx.state === 'suspended') {
                    if(this.audioCtx.state === 'suspended') this.audioCtx.resume();
                    else return;
                 }
@@ -950,37 +1026,24 @@ export const prerender = true;
                 const content = document.getElementById('leaderboard-content');
                 const tableBody = document.getElementById('leaderboard-table-body');
                 const currentChipsDisplay = document.getElementById('leaderboard-current-chips');
-                
                 if (!modal || !loading || !content || !tableBody) return;
-                
                 modal.classList.remove('hidden');
                 loading.classList.remove('hidden');
                 content.classList.add('hidden');
-                
-                // Update current chips and cash display
-                if (currentChipsDisplay) {
-                    currentChipsDisplay.textContent = this.state.prestigeChips;
-                }
+                if (currentChipsDisplay) currentChipsDisplay.textContent = this.state.prestigeChips;
                 const currentCashDisplay = document.getElementById('leaderboard-current-cash');
-                if (currentCashDisplay) {
-                    currentCashDisplay.textContent = '$' + this.formatNumber(this.state.cash);
-                }
-                
+                if (currentCashDisplay) currentCashDisplay.textContent = '$' + this.formatNumber(this.state.cash);
                 try {
                     const response = await fetch(`/api/leaderboard?t=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
                     if (!response.ok) throw new Error('Failed to fetch leaderboard');
-                    
                     const leaderboard = await response.json();
-                    
                     tableBody.innerHTML = '';
-                    
                     if (leaderboard.length === 0) {
                         tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400">No scores yet. Be the first!</td></tr>';
                     } else {
                         leaderboard.forEach((entry, index) => {
                             const row = document.createElement('tr');
                             row.className = index % 2 === 0 ? 'bg-black/30' : '';
-                            
                             const rankCell = document.createElement('td');
                             rankCell.className = 'py-2 px-3 font-bold';
                             rankCell.textContent = `#${index + 1}`;
@@ -988,19 +1051,15 @@ export const prerender = true;
                             else if (index === 1) rankCell.className += ' text-slate-300';
                             else if (index === 2) rankCell.className += ' text-amber-600';
                             else rankCell.className += ' text-slate-400';
-                            
                             const nameCell = document.createElement('td');
                             nameCell.className = 'py-2 px-3 text-slate-200';
                             nameCell.textContent = entry.name || 'Anonymous';
-                            
                             const chipsCell = document.createElement('td');
                             chipsCell.className = 'py-2 px-3 text-right font-mono text-gold-400 font-bold';
                             chipsCell.textContent = this.formatNumber(entry.chips || 0);
-                            
                             const cashCell = document.createElement('td');
                             cashCell.className = 'py-2 px-3 text-right font-mono text-green-400 font-bold';
                             cashCell.textContent = '$' + this.formatNumber(entry.cash || 0);
-                            
                             row.appendChild(rankCell);
                             row.appendChild(nameCell);
                             row.appendChild(chipsCell);
@@ -1008,7 +1067,6 @@ export const prerender = true;
                             tableBody.appendChild(row);
                         });
                     }
-                    
                     loading.classList.add('hidden');
                     content.classList.remove('hidden');
                 } catch (error) {
@@ -1022,28 +1080,20 @@ export const prerender = true;
             async submitScore() {
                 const nameInput = document.getElementById('leaderboard-name-input');
                 if (!nameInput) return;
-                
                 const name = nameInput.value.trim();
                 if (name.toLowerCase() === 'mattadmn') { window.location.href = '/admin'; return; }
-                
                 const chips = this.state.prestigeChips;
                 const cash = this.state.cash;
-                
                 if (!name || name.length === 0) { alert('Please enter your name'); nameInput.focus(); return; }
                 if (name.length > 12) { alert('Name must be 12 characters or less'); nameInput.focus(); return; }
-                if (!Number.isFinite(chips) || chips < 0) { alert('Invalid chips value.'); return; }
-                if (!Number.isFinite(cash) || cash < 0) { alert('Invalid cash value.'); return; }
-                
                 try {
                     const response = await fetch('/api/leaderboard', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name, chips, cash }),
                     });
-                    
                     if (response.status === 422) { alert('That name is not allowed. Please choose another.'); return; }
                     if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to submit score'); }
-                    
                     await this.showLeaderboard();
                     nameInput.value = '';
                     this.playSfx('win');
