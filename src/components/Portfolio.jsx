@@ -157,11 +157,11 @@ const NavLink = ({ children, href }) => (
 );
 
 /**
- * Blog Button - Easter Egg Link to High Roller Tycoon
+ * Links Button - Link to Links page
  */
 const BlogButton = () => {
     return (
-        <NavLink href="/high-roller-tycoon">Blog</NavLink>
+        <NavLink href="/links">Links</NavLink>
     );
 };
 

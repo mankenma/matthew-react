@@ -1,0 +1,22 @@
+---
+import Links from '../components/Links.jsx';
+
+// Prerender this page for better performance
+export const prerender = true;
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<title>Links | Matthew Ankenmann</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+	</head>
+	<body style="margin: 0; padding: 0;">
+		<Links client:load />
+	</body>
+</html>
+
