@@ -79,8 +79,8 @@ export const prerender = true;
         }
 
         .poker-chip {
-            width: 240px;
-            height: 240px;
+            width: 180px;
+            height: 180px;
             border-radius: 50%;
             background: radial-gradient(circle at 30% 30%, #dc2626, #991b1b);
             border: 12px dashed white;
@@ -94,6 +94,13 @@ export const prerender = true;
             align-items: center;
             justify-content: center;
             z-index: 10;
+        }
+
+        @media (min-width: 768px) {
+            .poker-chip {
+                width: 240px;
+                height: 240px;
+            }
         }
 
         .poker-chip::before {
@@ -113,8 +120,8 @@ export const prerender = true;
         }
 
         .chip-inner {
-            width: 140px;
-            height: 140px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             background: #b91c1c;
             border: 4px solid #fcd34d;
@@ -122,6 +129,13 @@ export const prerender = true;
             align-items: center;
             justify-content: center;
             box-shadow: inset 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        @media (min-width: 768px) {
+            .chip-inner {
+                width: 140px;
+                height: 140px;
+            }
         }
 
         @keyframes float-cash {
@@ -197,16 +211,16 @@ export const prerender = true;
     <div id="event-container" class="absolute inset-0 pointer-events-none overflow-hidden z-40"></div>
     <div id="floating-text-container" class="fixed inset-0 pointer-events-none overflow-hidden z-50"></div>
 
-    <aside class="w-full md:w-1/4 bg-black/40 border-b md:border-b-0 md:border-r border-gold-600/30 p-3 pt-2 md:p-4 md:pt-4 flex flex-col justify-between z-20 backdrop-blur-sm order-2 md:order-1 h-[26vh] md:h-full shrink-0">
+    <aside class="w-full md:w-1/4 bg-black/40 border-b md:border-b-0 md:border-r border-gold-600/30 p-3 pt-2 md:p-4 md:pt-4 flex flex-col justify-between z-20 backdrop-blur-sm order-2 md:order-1 h-[22vh] md:h-full shrink-0">
         <div>
             <a href="/" class="block mb-2 md:mb-4 group">
-                <button class="w-full py-1 md:py-2 px-4 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 font-ui text-sm font-bold">
+                <button class="w-full py-0.5 md:py-2 px-4 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 font-ui text-xs md:text-sm font-bold">
                     <i class="fas fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
                     <span>Back to Homepage</span>
                 </button>
             </a>
-            <h1 class="font-casino text-3xl text-gold-400 text-center mb-1 drop-shadow-md">HIGH ROLLER</h1>
-            <div class="text-center text-xs text-gold-600/70 tracking-[0.3em] font-ui mb-6">TYCOON</div>
+            <h1 class="font-casino text-2xl md:text-3xl text-gold-400 text-center mb-1 drop-shadow-md">HIGH ROLLER</h1>
+            <div class="text-center text-xs text-gold-600/70 tracking-[0.3em] font-ui mb-1 md:mb-6">TYCOON</div>
 
             <div class="space-y-4 font-ui hidden md:block"> <div class="bg-black/50 p-3 rounded border border-gold-600/20">
                     <div class="text-xs text-slate-400 uppercase">Prestige Bonus</div>
@@ -228,14 +242,14 @@ export const prerender = true;
             </div>
         </div>
 
-        <button onclick="GAME.showPrestigeModal()" class="group relative w-full py-3 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all overflow-hidden mt-1 md:mt-0">
+        <button onclick="GAME.showPrestigeModal()" class="group relative w-full py-1.5 md:py-3 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-600 hover:border-gold-500 rounded text-slate-300 hover:text-white transition-all overflow-hidden mt-1 md:mt-0">
             <div class="absolute inset-0 bg-gold-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
             <span class="relative font-bold font-ui text-sm uppercase tracking-wider"><i class="fas fa-sack-dollar mr-2"></i>Cash Out</span>
         </button>
     </aside>
 
-    <main class="flex-1 flex flex-col items-center justify-center relative z-20 order-1 md:order-2 h-[39vh] md:h-full shrink-0">
-        <div class="text-center mb-4 md:mb-16 animate-fade-in-down w-full px-4">
+    <main class="flex-1 flex flex-col items-center justify-center relative z-20 order-1 md:order-2 h-[43vh] md:h-full shrink-0">
+        <div class="text-center mt-6 mb-4 md:mb-16 animate-fade-in-down w-full px-4">
             <div class="text-gold-500 font-bold text-xs md:text-sm tracking-[0.5em] mb-2 font-ui uppercase opacity-80">Net Worth</div>
             <div class="relative inline-block">
                 <div class="text-5xl md:text-7xl font-mono font-bold text-white drop-shadow-lg flex items-center justify-center gap-2">
