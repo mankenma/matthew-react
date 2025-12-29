@@ -17,9 +17,14 @@
     "@vercel/kv": "^1.0.1",
     "astro": "^5.16.6",
     "bad-words": "^4.0.0",
+    "leo-profanity": "^1.8.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "resend": "^6.6.0",
     "three": "^0.182.0"
+  },
+  "devDependencies": {
+    "@types/leo-profanity": "^1.5.5"
   }
 }

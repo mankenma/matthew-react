@@ -1,21 +1,90 @@
 import type { APIRoute } from 'astro';
 import { Filter } from 'bad-words';
+import filter from 'leo-profanity';
 
 // --- Configuration ---
 const DEBUG = true; // Set to false to disable logs
 const profanityFilter = new Filter();
 profanityFilter.addWords('gahoo');
-const RESERVED_WORDS = ['ADMIN', 'SYSTEM', 'MODERATOR', 'ROOT', 'NULL', 'UNDEFINED'];
+
+// Custom blocklist for terms that might bypass library filters
+const BLOCKED_TERMS = [
+  'HITLER',
+  'NAZI',
+  'KKK',
+  'ADMIN',
+  'SYSTEM',
+  'MODERATOR',
+  'ROOT',
+  'NULL',
+  'UNDEFINED',
+  'FUCK',
+  'SHIT',
+  'BITCH',
+  'ASSHOLE',
+  'CUNT',
+  'NIGGER',
+  'FAGGOT',
+  'RETARD',
+  'TRUMP',
+  'BIDEN',
+  // Add more specific terms as needed
+];
 
 // --- Helper: Logger ---
 function log(msg: string, data?: any) {
   if (DEBUG) console.log(`[Leaderboard] ${msg}`, data ? JSON.stringify(data) : '');
 }
 
-// --- Helper: Profanity Check ---
-function isProfane(name: string): boolean {
-  if (profanityFilter.isProfane(name)) return true;
-  return RESERVED_WORDS.some(word => name.toUpperCase().includes(word));
+// --- Helper: Multi-Layer Profanity Check ---
+function isClean(username: string): boolean {
+  const lowerUsername = username.toLowerCase();
+  const upperUsername = username.toUpperCase();
+  
+  // Block all-caps usernames
+  // Check if username contains at least one letter and is all uppercase
+  if (username !== lowerUsername && username === upperUsername && /[a-zA-Z]/.test(username)) {
+    log(`Blocked: All caps username: ${username}`);
+    return false;
+  }
+  
+  // Layer 1: bad-words filter (substring check)
+  // Get the list of bad words and check if username contains any as substring
+  const badWordsList = profanityFilter.list;
+  if (badWordsList.some((badWord: string) => lowerUsername.includes(badWord.toLowerCase()))) {
+    log(`Blocked by bad-words (substring): ${username}`);
+    return false;
+  }
+  
+  // Also check with the library's built-in method as fallback
+  if (profanityFilter.isProfane(username)) {
+    log(`Blocked by bad-words (exact): ${username}`);
+    return false;
+  }
+  
+  // Layer 2: leo-profanity check (substring check)
+  // Get the list of profane words and check if username contains any as substring
+  const leoProfanityList = filter.list();
+  if (leoProfanityList.some((badWord: string) => lowerUsername.includes(badWord.toLowerCase()))) {
+    log(`Blocked by leo-profanity (substring): ${username}`);
+    return false;
+  }
+  
+  // Also check with the library's built-in method as fallback
+  if (filter.check(username)) {
+    log(`Blocked by leo-profanity (exact): ${username}`);
+    return false;
+  }
+  
+  // Layer 3: Custom blocklist (substring check)
+  for (const term of BLOCKED_TERMS) {
+    if (upperUsername.includes(term)) {
+      log(`Blocked by custom blocklist (${term}): ${username}`);
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 // --- Redis Client Factory ---
@@ -344,8 +413,8 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    if (isProfane(trimmedName)) {
-      return new Response(JSON.stringify({ error: 'Name not allowed' }), { 
+    if (!isClean(trimmedName)) {
+      return new Response(JSON.stringify({ error: 'Username not allowed.' }), { 
         status: 422,
         headers: { 'Content-Type': 'application/json' }
       });
