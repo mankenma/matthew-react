@@ -1,5 +1,6 @@
 ---
 import Links from '../components/Links.jsx';
+import GoogleAnalytics from '../components/GoogleAnalytics.astro';
 
 // Prerender this page for better performance
 export const prerender = true;
@@ -14,6 +15,7 @@ export const prerender = true;
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+		<GoogleAnalytics />
 	</head>
 	<body style="margin: 0; padding: 0;">
 		<Links client:load />
