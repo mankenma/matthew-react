@@ -298,7 +298,7 @@ const SynthJam = () => {
     const channel = pusherRef.current.subscribe('presence-piano-lobby');
     channelRef.current = channel;
 
-    channel.bind('pusher:subscription_succeeded', (members) => {
+    channel.bind('pusher:subscription_succeeded', async (members) => {
       setIsSubscribed(true); // Mark subscription as ready
       const membersMap = new Map();
       Object.keys(members.members).forEach((userId) => {
@@ -315,12 +315,39 @@ const SynthJam = () => {
       setMembers(membersMap);
       setMemberCount(membersMap.size);
       updateVotes(membersMap);
+
+      // Load chat history from Redis
+      try {
+        const response = await fetch('/api/synthjam-chat');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.messages && Array.isArray(data.messages)) {
+            setChatMessages((prev) => [
+              ...data.messages.map((msg: any) => ({
+                type: 'user',
+                userId: msg.userId,
+                name: msg.name,
+                message: msg.message,
+                timestamp: msg.timestamp,
+              })),
+              ...prev,
+            ]);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load chat history:', error);
+      }
     });
 
     channel.bind('pusher:subscription_error', (error) => {
       console.error('Subscription error:', error);
       setIsSubscribed(false);
       setConnectionStatus('disconnected');
+      
+      // Show user-friendly error
+      if (error.error && error.error.includes('client events')) {
+        alert('Client events not enabled. Please enable "Client events" in your Pusher app settings.');
+      }
     });
 
     channel.bind('pusher:member_added', (member) => {
@@ -407,7 +434,14 @@ const SynthJam = () => {
 
   // Cast vote
   const castVote = useCallback((instrument) => {
-    if (!channelRef.current || !userIdRef.current || !isSubscribed) return;
+    if (!channelRef.current || !userIdRef.current || !isSubscribed) {
+      console.warn('Cannot cast vote: channel not ready', {
+        hasChannel: !!channelRef.current,
+        hasUserId: !!userIdRef.current,
+        isSubscribed,
+      });
+      return;
+    }
     if (!INSTRUMENTS[instrument]) {
       console.warn('Invalid instrument:', instrument);
       return;
@@ -418,10 +452,27 @@ const SynthJam = () => {
       voteMapRef.current.set(userIdRef.current, instrument);
 
       // Broadcast vote
-      channelRef.current.trigger('client-vote-cast', {
-        userId: userIdRef.current,
-        vote: instrument,
-      });
+      try {
+        if (channelRef.current && channelRef.current.trigger) {
+          const result = channelRef.current.trigger('client-vote-cast', {
+            userId: userIdRef.current,
+            vote: instrument,
+          });
+          if (result === false) {
+            console.warn('Vote trigger returned false - client events may not be enabled');
+          }
+        } else {
+          console.warn('Channel not ready for triggering events');
+        }
+      } catch (error: any) {
+        console.error('Failed to broadcast vote:', error);
+        if (error.message && error.message.includes('client events')) {
+          alert('Client events not enabled. Please enable "Client events" in Pusher app settings.');
+        }
+        // Still update local state
+        updateVotes();
+        return;
+      }
 
       updateVotes();
     } catch (error) {
@@ -430,7 +481,7 @@ const SynthJam = () => {
   }, [updateVotes, isSubscribed]);
 
   // Send chat message
-  const sendChatMessage = useCallback(() => {
+  const sendChatMessage = useCallback(async () => {
     if (!chatInput.trim() || !channelRef.current || !userIdRef.current || !isSubscribed) return;
 
     // Rate limiting
@@ -452,12 +503,65 @@ const SynthJam = () => {
         return;
       }
 
-      // Send message
-      channelRef.current.trigger('client-chat-message', {
+      const messageData = {
         userId: userIdRef.current,
         name: userName,
         message,
-      });
+        timestamp: now,
+      };
+
+      // Save to Redis
+      try {
+        await fetch('/api/synthjam-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(messageData),
+        });
+      } catch (error) {
+        console.error('Failed to save chat to Redis:', error);
+        // Continue anyway - still broadcast via Pusher
+      }
+
+      // Broadcast via Pusher
+      try {
+        if (channelRef.current && channelRef.current.trigger) {
+          const result = channelRef.current.trigger('client-chat-message', messageData);
+          if (result === false) {
+            console.warn('Chat trigger returned false - client events may not be enabled');
+            // Still add to local chat
+            setChatMessages((prev) => [
+              ...prev,
+              {
+                type: 'user',
+                ...messageData,
+              },
+            ]);
+          }
+        } else {
+          console.warn('Channel not ready for triggering chat');
+          // Still add to local chat
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              type: 'user',
+              ...messageData,
+            },
+          ]);
+        }
+      } catch (error: any) {
+        console.error('Failed to broadcast chat message:', error);
+        if (error.message && error.message.includes('client events')) {
+          alert('Client events not enabled. Please enable "Client events" in Pusher app settings.');
+        }
+        // Still add to local chat if broadcast fails
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            type: 'user',
+            ...messageData,
+          },
+        ]);
+      }
 
       setChatInput('');
       setLastChatTime(now);
