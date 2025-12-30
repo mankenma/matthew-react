@@ -299,7 +299,19 @@ const SynthJam = () => {
     channelRef.current = channel;
 
     channel.bind('pusher:subscription_succeeded', async (members) => {
-      setIsSubscribed(true); // Mark subscription as ready
+      // Wait a small delay to ensure Pusher has fully processed the subscription
+      // This prevents "connection not subscribed" errors
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Double-check channel is actually subscribed before marking as ready
+      if (channel.subscribed === true) {
+        setIsSubscribed(true); // Mark subscription as ready
+      } else {
+        console.error('Subscription succeeded but channel not marked as subscribed');
+        setIsSubscribed(false);
+        return;
+      }
+      
       const membersMap = new Map();
       Object.keys(members.members).forEach((userId) => {
         membersMap.set(userId, members.members[userId]);
@@ -433,10 +445,17 @@ const SynthJam = () => {
   }, [members, initializeAudio, updateVotes, playNote]);
 
   // Cast vote
-  const castVote = useCallback((instrument) => {
-    if (!channelRef.current || !userIdRef.current || !isSubscribed) {
+  const castVote = useCallback(async (instrument) => {
+    // Check both local state AND actual channel subscription state
+    const channelReady = channelRef.current && 
+                         channelRef.current.subscribed !== false &&
+                         isSubscribed &&
+                         userIdRef.current;
+    
+    if (!channelReady) {
       console.warn('Cannot cast vote: channel not ready', {
         hasChannel: !!channelRef.current,
+        channelSubscribed: channelRef.current?.subscribed,
         hasUserId: !!userIdRef.current,
         isSubscribed,
       });
@@ -451,29 +470,60 @@ const SynthJam = () => {
       setUserVote(instrument);
       voteMapRef.current.set(userIdRef.current, instrument);
 
-      // Broadcast vote
-      try {
-        if (channelRef.current && channelRef.current.trigger) {
+      // Broadcast vote - verify channel is actually subscribed and ready
+      // Wait a tiny bit to ensure subscription is fully processed
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      if (channelRef.current && 
+          channelRef.current.subscribed === true && 
+          typeof channelRef.current.trigger === 'function') {
+        try {
           const result = channelRef.current.trigger('client-vote-cast', {
             userId: userIdRef.current,
             vote: instrument,
           });
-          if (result === false) {
-            console.warn('Vote trigger returned false - client events may not be enabled');
+          
+          // trigger() returns true on success, false on failure, or undefined if not ready
+          if (result === false || result === undefined) {
+            console.error('Vote trigger failed - client events may not be enabled or channel not ready', {
+              result,
+              subscribed: channelRef.current.subscribed,
+              channelState: channelRef.current.state,
+            });
+            alert('Unable to broadcast vote. Please check that client events are enabled in Pusher settings.');
           }
-        } else {
-          console.warn('Channel not ready for triggering events');
+        } catch (error) {
+          console.error('Failed to broadcast vote:', error);
+          if (error && error.message) {
+            if (error.message.includes('client events')) {
+              alert('Client events not enabled. Please enable "Client events" in your Pusher app settings.');
+            } else if (error.message.includes('not subscribed')) {
+              console.warn('Channel subscription not complete yet, retrying...');
+              // Retry after a short delay
+              setTimeout(() => {
+                if (channelRef.current && channelRef.current.subscribed === true) {
+                  try {
+                    channelRef.current.trigger('client-vote-cast', {
+                      userId: userIdRef.current,
+                      vote: instrument,
+                    });
+                  } catch (retryError) {
+                    console.error('Retry also failed:', retryError);
+                  }
+                }
+              }, 200);
+            }
+          }
         }
-      } catch (error) {
-        console.error('Failed to broadcast vote:', error);
-        if (error && error.message && error.message.includes('client events')) {
-          alert('Client events not enabled. Please enable "Client events" in Pusher app settings.');
-        }
-        // Still update local state
-        updateVotes();
-        return;
+      } else {
+        console.error('Channel not in subscribed state or trigger method unavailable', {
+          subscribed: channelRef.current?.subscribed,
+          hasTrigger: typeof channelRef.current?.trigger === 'function',
+          channelState: channelRef.current?.state,
+        });
       }
 
+      // Always update local state
       updateVotes();
     } catch (error) {
       console.error('Failed to cast vote:', error);
@@ -482,7 +532,23 @@ const SynthJam = () => {
 
   // Send chat message
   const sendChatMessage = useCallback(async () => {
-    if (!chatInput.trim() || !channelRef.current || !userIdRef.current || !isSubscribed) return;
+    // Check both local state AND actual channel subscription state
+    const channelReady = channelRef.current && 
+                         channelRef.current.subscribed !== false &&
+                         isSubscribed &&
+                         userIdRef.current;
+    
+    if (!chatInput.trim() || !channelReady) {
+      if (!channelReady) {
+        console.warn('Cannot send chat: channel not ready', {
+          hasChannel: !!channelRef.current,
+          channelSubscribed: channelRef.current?.subscribed,
+          hasUserId: !!userIdRef.current,
+          isSubscribed,
+        });
+      }
+      return;
+    }
 
     // Rate limiting
     const now = Date.now();
@@ -522,12 +588,24 @@ const SynthJam = () => {
         // Continue anyway - still broadcast via Pusher
       }
 
-      // Broadcast via Pusher
-      try {
-        if (channelRef.current && channelRef.current.trigger) {
+      // Broadcast via Pusher - verify channel is actually subscribed and ready
+      // Wait a tiny bit to ensure subscription is fully processed
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      if (channelRef.current && 
+          channelRef.current.subscribed === true && 
+          typeof channelRef.current.trigger === 'function') {
+        try {
           const result = channelRef.current.trigger('client-chat-message', messageData);
-          if (result === false) {
-            console.warn('Chat trigger returned false - client events may not be enabled');
+          
+          // trigger() returns true on success, false on failure, or undefined if not ready
+          if (result === false || result === undefined) {
+            console.error('Chat trigger failed - client events may not be enabled or channel not ready', {
+              result,
+              subscribed: channelRef.current.subscribed,
+              channelState: channelRef.current.state,
+            });
+            alert('Unable to broadcast message. Please check that client events are enabled in Pusher settings.');
             // Still add to local chat
             setChatMessages((prev) => [
               ...prev,
@@ -537,9 +615,35 @@ const SynthJam = () => {
               },
             ]);
           }
-        } else {
-          console.warn('Channel not ready for triggering chat');
-          // Still add to local chat
+        } catch (error) {
+          console.error('Failed to broadcast chat message:', error);
+          if (error && error.message) {
+            if (error.message.includes('client events')) {
+              alert('Client events not enabled. Please enable "Client events" in your Pusher app settings.');
+            } else if (error.message.includes('not subscribed')) {
+              console.warn('Channel subscription not complete yet, retrying...');
+              // Retry after a short delay
+              setTimeout(() => {
+                if (channelRef.current && channelRef.current.subscribed === true) {
+                  try {
+                    channelRef.current.trigger('client-chat-message', messageData);
+                  } catch (retryError) {
+                    console.error('Retry also failed:', retryError);
+                    // Still add to local chat
+                    setChatMessages((prev) => [
+                      ...prev,
+                      {
+                        type: 'user',
+                        ...messageData,
+                      },
+                    ]);
+                  }
+                }
+              }, 200);
+              return; // Don't add to chat yet, wait for retry
+            }
+          }
+          // Still add to local chat if broadcast fails
           setChatMessages((prev) => [
             ...prev,
             {
@@ -548,12 +652,13 @@ const SynthJam = () => {
             },
           ]);
         }
-      } catch (error) {
-        console.error('Failed to broadcast chat message:', error);
-        if (error && error.message && error.message.includes('client events')) {
-          alert('Client events not enabled. Please enable "Client events" in Pusher app settings.');
-        }
-        // Still add to local chat if broadcast fails
+      } else {
+        console.error('Channel not in subscribed state or trigger method unavailable', {
+          subscribed: channelRef.current?.subscribed,
+          hasTrigger: typeof channelRef.current?.trigger === 'function',
+          channelState: channelRef.current?.state,
+        });
+        // Still add to local chat
         setChatMessages((prev) => [
           ...prev,
           {
