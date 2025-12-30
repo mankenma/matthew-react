@@ -323,7 +323,7 @@ const SynthJam = () => {
           const data = await response.json();
           if (data.messages && Array.isArray(data.messages)) {
             setChatMessages((prev) => [
-              ...data.messages.map((msg: any) => ({
+              ...data.messages.map((msg) => ({
                 type: 'user',
                 userId: msg.userId,
                 name: msg.name,
@@ -464,9 +464,9 @@ const SynthJam = () => {
         } else {
           console.warn('Channel not ready for triggering events');
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Failed to broadcast vote:', error);
-        if (error.message && error.message.includes('client events')) {
+        if (error && error.message && error.message.includes('client events')) {
           alert('Client events not enabled. Please enable "Client events" in Pusher app settings.');
         }
         // Still update local state
@@ -548,9 +548,9 @@ const SynthJam = () => {
             },
           ]);
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Failed to broadcast chat message:', error);
-        if (error.message && error.message.includes('client events')) {
+        if (error && error.message && error.message.includes('client events')) {
           alert('Client events not enabled. Please enable "Client events" in Pusher app settings.');
         }
         // Still add to local chat if broadcast fails
