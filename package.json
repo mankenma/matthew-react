@@ -11,6 +11,7 @@
   "dependencies": {
     "@astrojs/netlify": "^6.6.3",
     "@astrojs/react": "^4.4.2",
+    "@types/pusher-js": "^4.2.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@upstash/redis": "^1.36.0",
@@ -19,10 +20,13 @@
     "bad-words": "^4.0.0",
     "leo-profanity": "^1.8.0",
     "lucide-react": "^0.562.0",
+    "pusher": "^5.2.0",
+    "pusher-js": "^8.4.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "resend": "^6.6.0",
-    "three": "^0.182.0"
+    "three": "^0.182.0",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@types/leo-profanity": "^1.5.5"

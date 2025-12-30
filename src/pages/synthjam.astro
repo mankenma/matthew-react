@@ -1,0 +1,21 @@
+---
+// SynthJam - Multiplayer Piano Page
+import GoogleAnalytics from '../components/GoogleAnalytics.astro';
+import SynthJam from '../components/SynthJam.jsx';
+
+// SSR required for Pusher real-time functionality
+export const prerender = false;
+---
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SynthJam - Multiplayer Piano</title>
+    <GoogleAnalytics />
+    <script src="https://cdn.tailwindcss.com" is:inline></script>
+</head>
+<body style="margin: 0; padding: 0; overflow: hidden;">
+    <SynthJam client:load />
+</body>
+</html>
+

@@ -189,6 +189,12 @@ export default function Links() {
             title="Play High Roller Tycoon"
             desc="An interactive casino idle-clicker game built with React and Three.js."
           />
+          <LinkButton 
+            href="/synthjam"
+            emoji="🎹"
+            title="SynthJam - Multiplayer Piano"
+            desc="Real-time collaborative music experience with democratic instrument voting and live chat."
+          />
         </div>
 
         {/* Footer */}
