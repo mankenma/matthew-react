@@ -36,6 +36,15 @@ function log(msg: string, data?: any) {
   if (DEBUG) console.log(`[Leaderboard] ${msg}`, data ? JSON.stringify(data) : '');
 }
 
+// --- Helper: Hash IP Address (SHA-256) ---
+async function hashIP(ip: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(ip);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // --- Helper: Multi-Layer Profanity Check ---
 function isClean(username: string): boolean {
   const lowerUsername = username.toLowerCase();
@@ -261,7 +270,7 @@ async function getLeaderboard() {
     .slice(0, 15);
 }
 
-async function saveScore(name: string, chips: number, cash: number, time: number | null = null) {
+async function saveScore(name: string, chips: number, cash: number, time: number | null = null, metadata: { inventory: string | null; income_rate: number | null; device_info: string | null; location: string | null; ip_hash: string | null } | null = null) {
   const client = await getRedis();
   const isUpstash = !!import.meta.env.UPSTASH_REDIS_REST_URL;
 
@@ -330,6 +339,37 @@ async function saveScore(name: string, chips: number, cash: number, time: number
             }
         }
         
+        // 4. Store metadata in Redis HASH (separate from leaderboard ranking)
+        if (metadata) {
+          try {
+            const metadataKey = `player_metadata:${name}`;
+            const hashData: Record<string, string> = {};
+            
+            // Only include non-null fields
+            if (metadata.inventory !== null) hashData.inventory = metadata.inventory;
+            if (metadata.income_rate !== null) hashData.income_rate = String(metadata.income_rate);
+            if (metadata.device_info !== null) hashData.device_info = metadata.device_info;
+            if (metadata.location !== null) hashData.location = metadata.location;
+            if (metadata.ip_hash !== null) hashData.ip_hash = metadata.ip_hash;
+            
+            // Store metadata in HASH using hset
+            if (Object.keys(hashData).length > 0) {
+              if (isUpstash) {
+                await client.hset(metadataKey, hashData);
+              } else {
+                // Vercel KV fallback - use individual keys or hset if supported
+                for (const [field, value] of Object.entries(hashData)) {
+                  await client.hset(metadataKey, field, value);
+                }
+              }
+              log(`Metadata saved for ${name}`);
+            }
+          } catch (e) {
+            log('Error saving metadata (non-critical)', e);
+            // Don't fail the entire request if metadata save fails
+          }
+        }
+        
         log(`Successfully saved: ${name} - Chips: ${chips}, Cash: ${cash}, Time: ${time}`);
       } else {
         log(`Score not high enough for ${name}`);
@@ -396,7 +436,26 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const { name, chips, cash, time } = body;
+    const { name, chips, cash, time, assets, incomePerSecond, userAgent } = body;
+
+    // Extract IP and location from headers
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : null;
+    const city = request.headers.get('x-vercel-ip-city') || request.headers.get('cf-ipcity') || null;
+    const country = request.headers.get('x-vercel-ip-country') || request.headers.get('cf-ipcountry') || null;
+    
+    // Hash IP for privacy
+    let ipHash: string | null = null;
+    if (ip) {
+      try {
+        ipHash = await hashIP(ip);
+      } catch (e) {
+        log('Error hashing IP', e);
+      }
+    }
+
+    // Build location string
+    const location = city && country ? `${city}, ${country}` : city || country || null;
 
     // Validation
     if (!name || typeof name !== 'string') {
@@ -447,7 +506,41 @@ export const POST: APIRoute = async ({ request }) => {
       validatedTime = Math.floor(time);
     }
 
-    await saveScore(trimmedName, Math.floor(chips), Math.floor(cash), validatedTime);
+    // Validate and prepare metadata
+    let validatedAssets: string | null = null;
+    if (assets !== undefined && assets !== null) {
+      if (typeof assets === 'object') {
+        validatedAssets = JSON.stringify(assets);
+      } else if (typeof assets === 'string') {
+        // Already stringified, validate it's valid JSON
+        try {
+          JSON.parse(assets);
+          validatedAssets = assets;
+        } catch (e) {
+          log('Invalid assets JSON string', e);
+        }
+      }
+    }
+
+    let validatedIncomeRate: number | null = null;
+    if (incomePerSecond !== undefined && incomePerSecond !== null) {
+      if (Number.isFinite(incomePerSecond) && incomePerSecond >= 0 && incomePerSecond <= Number.MAX_SAFE_INTEGER) {
+        validatedIncomeRate = Math.floor(incomePerSecond);
+      }
+    }
+
+    const validatedDeviceInfo = userAgent && typeof userAgent === 'string' ? userAgent.substring(0, 500) : null; // Limit length
+
+    // Prepare metadata object
+    const metadata = {
+      inventory: validatedAssets,
+      income_rate: validatedIncomeRate,
+      device_info: validatedDeviceInfo,
+      location: location,
+      ip_hash: ipHash
+    };
+
+    await saveScore(trimmedName, Math.floor(chips), Math.floor(cash), validatedTime, metadata);
     return new Response(JSON.stringify({ success: true }), { 
       status: 200,
         headers: {
