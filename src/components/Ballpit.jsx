@@ -13,12 +13,12 @@ const Ballpit = ({ colors }) => {
   // Physics Constants from JSON
   const PHYSICS = {
     count: 45,
-    gravity: 0.6,
+    gravity: 0.1, // Reduced for low gravity/floating effect
     friction: 0.998,
-    bounce: 0.95, // Restitution
+    bounce: 0.98, // Increased restitution for more ethereal floating feel
     mouseRadius: 220, // Balanced interaction radius
-    mouseForce: 0.006, // Moderate base force
-    directHoverMultiplier: 2.5, // Moderate extra force when directly over a ball
+    mouseForce: 0.002, // Reduced force for subtler cursor interaction
+    directHoverMultiplier: 1.5, // Reduced multiplier for gentler direct hover effect
     radiusMin: 15,
     radiusMax: 30
   };
