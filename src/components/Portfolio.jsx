@@ -28,14 +28,14 @@ const EXPERIENCE = [
     company: "Tangam Systems", 
     location: "Waterloo, ON / APAC",
     date: "Sep 2024 — Present", 
-    desc: "Spearheading analytics strategy for casino operators across APAC. Driving data-led decision making while managing client success and expansion initiatives." 
+    desc: "Deployed to the APAC region, I am responsible for client success and analytics rollouts across the market. I work with operators to implement optimization strategies and oversee the full lifecycle of analytics adoption, ensuring our partners maximize their operational efficiency." 
   },
   { 
     role: "Senior Business Analyst", 
     company: "Tangam Systems", 
     location: "Waterloo, ON / Global",
     date: "Feb 2023 — Aug 2024", 
-    desc: "Led client-facing analytics projects and software implementations across North America, UK, and APAC. Translated complex data into actionable business insights." 
+    desc: "Managed optimization analyses and technical onboarding for global clients. I translated client feedback into product features and supported business development through on-site training, positioning Tangam as a strategic partner." 
   },
   { 
     role: "Business Analyst", 
