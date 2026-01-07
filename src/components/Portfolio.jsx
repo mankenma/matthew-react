@@ -161,7 +161,22 @@ const NavLink = ({ children, href }) => (
  */
 const BlogButton = () => {
     return (
-        <NavLink href="/links">Links</NavLink>
+        <a 
+            href="/links"
+            style={{ 
+                textDecoration: 'none', 
+                color: THEME.muted, 
+                fontWeight: 600, 
+                fontSize: '1.8rem',
+                padding: '16px 32px', 
+                transition: 'color 0.2s',
+                fontFamily: 'Inter, sans-serif'
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = THEME.link}
+            onMouseLeave={e => e.currentTarget.style.color = THEME.muted}
+        >
+            Links
+        </a>
     );
 };
 
