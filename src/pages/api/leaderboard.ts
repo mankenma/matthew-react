@@ -146,8 +146,8 @@ async function getLeaderboard() {
     try {
       // 1. Fetch Chips (Sorted Set)
       // Note: We request scores. Upstash returns either ['name', score, ...] or [{member, score}...]
-      // Fetch top 20 to ensure we have enough for sorting, then slice to top 15
-      const rawZRange = await client.zrange('high_roller_chips', 0, 19, { rev: true, withScores: true });
+      // Fetch top 35 to ensure we have enough for sorting, then slice to top 30
+      const rawZRange = await client.zrange('high_roller_chips', 0, 34, { rev: true, withScores: true });
       
       const parsedResults: { name: string; chips: number }[] = [];
 
@@ -248,7 +248,7 @@ async function getLeaderboard() {
           time: timeMap[entry.name] ?? null
         }))
         .sort((a, b) => (b.chips - a.chips) || (b.cash - a.cash)) // Sort by Chips, then Cash
-        .slice(0, 15);
+        .slice(0, 30);
       
     } catch (e) {
       log('Critical Redis Read Error', e);
@@ -267,7 +267,7 @@ async function getLeaderboard() {
       // Secondary sort: cash (descending) on tie
       return b.cash - a.cash;
     })
-    .slice(0, 15);
+    .slice(0, 30);
 }
 
 async function saveScore(name: string, chips: number, cash: number, time: number | null = null, metadata: { inventory: string | null; income_rate: number | null; device_info: string | null; location: string | null; ip_hash: string | null } | null = null) {
