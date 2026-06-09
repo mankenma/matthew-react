@@ -183,11 +183,17 @@ export default function Links() {
 
         {/* LINKS SECTION */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <LinkButton 
+          <LinkButton
             href="/high-roller-tycoon"
             emoji="🎰"
             title="Play High Roller Tycoon"
             desc="An interactive casino idle-clicker game built with React and Three.js."
+          />
+          <LinkButton
+            href="/baccarat-simulator"
+            emoji="🎴"
+            title="Baccarat Simulator"
+            desc="An 8-deck punto banco trainer with player and dealer modes, squeeze reveals, and roadmaps."
           />
           {false && (
             <LinkButton 

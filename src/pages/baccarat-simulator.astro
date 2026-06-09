@@ -1,0 +1,27 @@
+---
+// Baccarat Simulator - 8-deck punto banco trainer (player & dealer modes)
+import GoogleAnalytics from '../components/GoogleAnalytics.astro';
+import BaccaratApp from '../games/baccarat/App';
+import '../games/baccarat/index.css';
+
+// Prerender this page for better performance
+export const prerender = true;
+---
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Baccarat Simulator | Matthew Ankenmann</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap"
+			rel="stylesheet"
+		/>
+		<GoogleAnalytics />
+	</head>
+	<body style="margin: 0; padding: 0;">
+		<BaccaratApp client:only="react" />
+	</body>
+</html>

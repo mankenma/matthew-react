@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #1d2128 0%, #14161a 55%, #0d0f12 100%);
+  color: #f4efe2;
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular figures for all numeric displays. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.felt-surface {
+  background:
+    radial-gradient(120% 120% at 50% 0%, #14402f 0%, #0e2a1f 45%, #0a1f17 100%);
+  box-shadow:
+    inset 0 2px 40px rgba(0, 0, 0, 0.55),
+    inset 0 0 120px rgba(0, 0, 0, 0.4);
+}
+
+.brass-rule {
+  border-color: rgba(201, 162, 75, 0.35);
+}
+
+.brass-text {
+  color: #c9a24b;
+}
+
+.gold-edge {
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 75, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* A bet spot painted onto the baize: engraved oval, transparent fill so the
+   felt reads through it, faint inner ring like printed casino layout art. */
+.baize-spot {
+  background:
+    radial-gradient(120% 130% at 50% 20%, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.22) 70%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.baize-spot::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  border: 1px solid currentColor;
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+/* The printed boundary arc of a baccarat layout — purely decorative, sits
+   behind the cards inside the felt panel. */
+.table-arc {
+  position: absolute;
+  left: 50%;
+  top: -42%;
+  width: 150%;
+  height: 150%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 1.5px solid rgba(201, 162, 75, 0.16);
+  box-shadow: 0 0 60px rgba(201, 162, 75, 0.05) inset;
+  pointer-events: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 162, 75, 0.25);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+button {
+  font-family: inherit;
+}
