@@ -88,7 +88,7 @@ export function Scoreboard({ entries }: { entries: RoadEntry[] }) {
         <h3 className="font-display text-sm font-bold uppercase tracking-widest text-white/70">Scoreboard</h3>
         <button
           onClick={() => setShowMyth((v) => !v)}
-          className="text-[11px] text-white/40 underline decoration-dotted underline-offset-2 hover:text-brass"
+          className="-m-2 p-2 text-[11px] text-white/55 underline decoration-dotted underline-offset-2 hover:text-brass"
         >
           myth check
         </button>
@@ -96,11 +96,11 @@ export function Scoreboard({ entries }: { entries: RoadEntry[] }) {
 
       <div className="space-y-4 overflow-x-auto">
         <div>
-          <div className="mb-1 text-[10px] uppercase tracking-wider text-white/35">Bead Plate</div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-white/50">Bead Plate</div>
           <BeadPlate entries={entries} />
         </div>
         <div>
-          <div className="mb-1 text-[10px] uppercase tracking-wider text-white/35">Big Road</div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-white/50">Big Road</div>
           <BigRoad entries={entries} />
         </div>
       </div>

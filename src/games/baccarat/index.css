@@ -99,3 +99,28 @@ body {
 button {
   font-family: inherit;
 }
+
+/* Tailwind preflight resets buttons to the default cursor; restore the pointer
+   on anything actually clickable. */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Keyboard navigation: a visible brass ring on every focused control. */
+:focus-visible {
+  outline: 2px solid rgba(201, 162, 75, 0.85);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reduced motion: collapse decorative animations to their end state. The
+   squeeze reveal is drag-driven, so it keeps working without animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -66,7 +66,7 @@ export default {
         flip: 'flip 0.28s ease-out both',
         popIn: 'popIn 0.3s cubic-bezier(0.2,0.8,0.2,1) both',
         chipFly: 'chipFly 0.25s ease-out both',
-        squeezeHint: 'squeezeHint 1.1s ease-in-out 3',
+        squeezeHint: 'squeezeHint 1.1s ease-in-out infinite',
         winnerGlow: 'winnerGlow 1.6s ease-in-out infinite',
         countPop: 'countPop 0.4s cubic-bezier(0.2,0.8,0.2,1) both',
       },

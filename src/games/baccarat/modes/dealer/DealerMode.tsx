@@ -285,12 +285,12 @@ export function DealerMode() {
                 {d}
               </button>
             ))}
-            <label className="ml-2 flex items-center gap-1.5 text-[11px] text-white/45">
-              <input type="checkbox" checked={alwaysAll} onChange={(e) => setAlwaysAll(e.target.checked)} className="accent-brass" />
+            <label className="ml-2 flex cursor-pointer items-center gap-1.5 text-[11px] text-white/60">
+              <input type="checkbox" checked={alwaysAll} onChange={(e) => setAlwaysAll(e.target.checked)} className="h-4 w-4 cursor-pointer accent-brass" />
               evaluate all side bets
             </label>
           </div>
-          <div className="text-xs text-white/40">
+          <div className="text-xs text-white/55">
             Shoe: <span className="tnum">{status.remaining}</span>
             {status.cutReached && <span className="ml-2 text-brass">cut card</span>}
           </div>
@@ -394,14 +394,14 @@ export function DealerMode() {
         <div className="rounded-2xl border border-white/5 bg-charcoal-2/70 p-4 gold-edge">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="font-display text-sm font-bold uppercase tracking-widest text-white/70">Drill stats</h3>
-            <button onClick={resetStats} className="text-[11px] text-white/40 hover:text-banker-red">reset</button>
+            <button onClick={resetStats} className="-m-2 p-2 text-[11px] text-white/55 hover:text-banker-red">reset</button>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <Metric label="Accuracy" value={`${acc.toFixed(0)}%`} />
             <Metric label="Streak" value={stats.streak.toString()} />
             <Metric label="Best" value={stats.best.toString()} />
           </div>
-          <div className="mt-1 text-center text-[11px] text-white/35 tnum">
+          <div className="mt-1 text-center text-[11px] text-white/50 tnum">
             {stats.correct}/{stats.decisions} decisions
           </div>
         </div>
@@ -417,7 +417,7 @@ function WeakSpots({ stats }: { stats: DealerStats }) {
   const sides = Object.entries(stats.sideMiss).filter(([, n]) => (n as number) > 0).sort((a, b) => (b[1] as number) - (a[1] as number));
   if (bankerRows.length === 0 && sides.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/5 bg-charcoal-2/70 p-4 gold-edge text-[12px] text-white/40">
+      <div className="rounded-2xl border border-white/5 bg-charcoal-2/70 p-4 gold-edge text-[12px] text-white/55">
         <h3 className="mb-2 font-display text-sm font-bold uppercase tracking-widest text-white/70">Weak spots</h3>
         No misses yet — play a few hands and your trouble areas will surface here (and resurface more often).
       </div>
@@ -428,7 +428,7 @@ function WeakSpots({ stats }: { stats: DealerStats }) {
       <h3 className="mb-2 font-display text-sm font-bold uppercase tracking-widest text-white/70">Weak spots</h3>
       {bankerRows.length > 0 && (
         <div className="mb-2">
-          <div className="mb-1 text-[10px] uppercase tracking-wider text-white/35">Banker table rows</div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-white/50">Banker table rows</div>
           <div className="flex flex-wrap gap-1.5">
             {bankerRows.map(([total, n]) => (
               <span key={total} className="tnum rounded bg-banker-red/15 px-2 py-0.5 text-[11px] text-banker-red">Banker {total} · {n as number}×</span>
@@ -438,7 +438,7 @@ function WeakSpots({ stats }: { stats: DealerStats }) {
       )}
       {sides.length > 0 && (
         <div>
-          <div className="mb-1 text-[10px] uppercase tracking-wider text-white/35">Side bets</div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-white/50">Side bets</div>
           <div className="flex flex-wrap gap-1.5">
             {sides.map(([id, n]) => (
               <span key={id} className="tnum rounded bg-banker-red/15 px-2 py-0.5 text-[11px] text-banker-red">{sideBetById(id as SideBetId).displayName} · {n as number}×</span>
@@ -487,7 +487,7 @@ function ResolveCard({
             </button>
           )}
         </span>
-        <span className="tnum text-[10px] text-white/35">{entry.payoutDescription}</span>
+        <span className="tnum text-[10px] text-white/50">{entry.payoutDescription}</span>
       </div>
       {showInfo && open && (
         <div className="mb-2 rounded-md bg-black/30 px-2.5 py-2">
@@ -539,7 +539,7 @@ function TotalsPrompt({ onSubmit }: { onSubmit: (playerTotal: number, bankerTota
       >
         Confirm totals
       </button>
-      <p className="text-[11px] text-white/35">Sum each hand's card values, then take the last digit (mod 10).</p>
+      <p className="text-[11px] text-white/50">Sum each hand's card values, then take the last digit (mod 10).</p>
     </Prompt>
   );
 }
@@ -600,7 +600,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-black/25 py-2">
       <div className="tnum text-xl font-bold brass-text">{value}</div>
-      <div className="text-[10px] uppercase tracking-wider text-white/35">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-white/50">{label}</div>
     </div>
   );
 }

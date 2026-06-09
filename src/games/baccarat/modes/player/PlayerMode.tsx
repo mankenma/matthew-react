@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useConfig } from '../../store/config';
 import { usePersistentState } from '../../store/persist';
 import { useDealer } from '../../store/useDealer';
@@ -61,6 +61,7 @@ export function PlayerMode() {
   const [log, setLog] = useState<RoundLog[]>([]);
   const [tip, setTip] = useState<string | null>(null);
   const [freeNote, setFreeNote] = useState<string | null>(null);
+  const [exported, setExported] = useState(false);
   const settled = useRef(false);
   const lastBets = useRef<{ main: Record<MainBet, number>; side: Partial<Record<SideBetId, number>> } | null>(null);
 
@@ -311,6 +312,8 @@ export function PlayerMode() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    setExported(true);
+    setTimeout(() => setExported(false), 2000);
   }
 
   // Keyboard: Enter deals (or plays a free hand when nothing is staked),
@@ -357,11 +360,14 @@ export function PlayerMode() {
         <div className="relative z-10">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-baseline gap-3">
-            <span className="text-xs uppercase tracking-widest text-white/40">Bankroll</span>
+            <span className="text-xs uppercase tracking-widest text-white/55">Bankroll</span>
             <span className="tnum font-display text-2xl font-bold brass-text">${Math.round(bankrollDisplay).toLocaleString()}</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-white/40">
-            <span className="text-base leading-none text-brass/70" aria-hidden>🂠</span>
+          <div className="flex items-center gap-2 text-xs text-white/55">
+            <svg width="13" height="17" viewBox="0 0 13 17" aria-hidden className="text-brass/70">
+              <rect x="0.75" y="0.75" width="11.5" height="15.5" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M3.5 8.5h6M6.5 5.5v6" stroke="currentColor" strokeWidth="1" opacity="0.6" />
+            </svg>
             Shoe: <span className="tnum">{status.remaining}</span> cards
             {status.cutReached && <span className="ml-2 text-brass">cut card — reshuffle soon</span>}
           </div>
@@ -434,13 +440,31 @@ export function PlayerMode() {
         <div className="mb-4 grid grid-cols-3 gap-3">
           <BetSpot label="Player" subtitle="1:1" stake={mainStake.Player} accent="player" onClick={() => addMain('Player')} disabled={phase !== 'betting'} won={mainWinBet === 'Player'} winAmount={mainWinAmount} />
           <BetSpot label="Tie" subtitle="8:1" stake={mainStake.Tie} accent="tie" onClick={() => addMain('Tie')} disabled={phase !== 'betting'} won={mainWinBet === 'Tie'} winAmount={mainWinAmount} />
-          <BetSpot label="Banker" subtitle={config.baseFormat === 'commission' ? '0.95:1' : 'even / 6 pays ½'} accent="banker" stake={mainStake.Banker} onClick={() => addMain('Banker')} disabled={phase !== 'betting'} won={mainWinBet === 'Banker'} winAmount={mainWinAmount} />
+          <BetSpot
+            label="Banker"
+            subtitle={
+              config.baseFormat === 'commission' ? (
+                '0.95:1'
+              ) : (
+                <span className="flex flex-col items-center leading-tight">
+                  <span>1:1</span>
+                  <span>Banker 6 pays 1:2</span>
+                </span>
+              )
+            }
+            accent="banker"
+            stake={mainStake.Banker}
+            onClick={() => addMain('Banker')}
+            disabled={phase !== 'betting'}
+            won={mainWinBet === 'Banker'}
+            winAmount={mainWinAmount}
+          />
         </div>
 
         {/* side bets */}
         {enabledSide.length > 0 && (
           <div>
-            <div className="mb-2 text-[10px] uppercase tracking-widest text-white/35">Proposition bets</div>
+            <div className="mb-2 text-[10px] uppercase tracking-widest text-white/50">Proposition bets</div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {enabledSide.map((b) => (
                 <SideSpot
@@ -501,14 +525,14 @@ export function PlayerMode() {
                 )}
               </>
             ) : (
-              <span className="text-sm text-white/40">Dealing…</span>
+              <span className="text-sm text-white/60">Dealing…</span>
             )}
           </div>
         </div>
 
         {phase === 'betting' && freeNote && (
           <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3 text-[12px] leading-relaxed text-white/65 animate-popIn">
-            <span className="font-semibold text-white/45">Free hand · </span>
+            <span className="font-semibold text-white/60">Free hand · </span>
             {freeNote}
           </div>
         )}
@@ -532,9 +556,11 @@ export function PlayerMode() {
                 onClick={exportCSV}
                 disabled={log.length === 0}
                 title="Download every hand this run as CSV"
-                className="text-[11px] text-brass/80 hover:text-brass disabled:cursor-default disabled:text-white/20"
+                className={`-m-2 p-2 text-[11px] disabled:cursor-default disabled:text-white/20 ${
+                  exported ? 'text-tie-green' : 'text-brass/80 hover:text-brass'
+                }`}
               >
-                export csv{log.length > 0 ? ` (${log.length})` : ''}
+                {exported ? 'exported ✓' : `export csv${log.length > 0 ? ` (${log.length})` : ''}`}
               </button>
               <button
                 onClick={() => {
@@ -543,7 +569,7 @@ export function PlayerMode() {
                   setRoad([]);
                   setLog([]);
                 }}
-                className="text-[11px] text-white/40 hover:text-banker-red"
+                className="-m-2 p-2 text-[11px] text-white/55 hover:text-banker-red"
               >
                 reset
               </button>
@@ -566,7 +592,7 @@ export function PlayerMode() {
           {Object.keys(stats.sideNet).length > 0 && (
             <>
               <div className="my-2 border-t border-white/5" />
-              <div className="mb-1 text-[10px] uppercase tracking-wider text-white/35">Net per side bet</div>
+              <div className="mb-1 text-[10px] uppercase tracking-wider text-white/50">Net per side bet</div>
               <dl className="space-y-1 text-[13px]">
                 {Object.entries(stats.sideNet).map(([id, net]) => (
                   <Stat key={id} label={sideBetById(id as SideBetId).displayName} value={`${(net as number) >= 0 ? '+' : ''}${(net as number).toFixed(0)}`} positive={(net as number) >= 0} />
@@ -624,13 +650,13 @@ function applyStats(st: PlayerStats, mainStake: Record<MainBet, number>, settle:
 function Stat({ label, value, positive, muted }: { label: string; value: string; positive?: boolean; muted?: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <dt className="text-white/45">{label}</dt>
+      <dt className="text-white/60">{label}</dt>
       <dd className={`tnum font-semibold ${muted ? 'text-white/55' : positive === undefined ? 'text-bone' : positive ? 'text-tie-green' : 'text-banker-red'}`}>{value}</dd>
     </div>
   );
 }
 
-function BetSpot({ label, subtitle, stake, accent, onClick, disabled, won, winAmount }: { label: string; subtitle: string; stake: number; accent: 'player' | 'banker' | 'tie'; onClick: () => void; disabled: boolean; won?: boolean; winAmount?: number }) {
+function BetSpot({ label, subtitle, stake, accent, onClick, disabled, won, winAmount }: { label: string; subtitle: ReactNode; stake: number; accent: 'player' | 'banker' | 'tie'; onClick: () => void; disabled: boolean; won?: boolean; winAmount?: number }) {
   // The spot is painted onto the baize: `currentColor` drives the engraved oval
   // border (see `.baize-spot`), so set the seat accent as the text color.
   const text = accent === 'player' ? 'text-player-blue' : accent === 'banker' ? 'text-banker-red' : 'text-tie-green';
@@ -643,7 +669,7 @@ function BetSpot({ label, subtitle, stake, accent, onClick, disabled, won, winAm
       }`}
     >
       <span className="font-display text-lg font-bold tracking-wide">{label}</span>
-      <span className="tnum text-[11px] text-white/45">{subtitle}</span>
+      <span className="tnum text-[11px] text-white/60">{subtitle}</span>
       {stake > 0 && (
         <span className="tnum mt-1 rounded-full bg-brass px-2 py-0.5 text-xs font-bold text-charcoal animate-chipFly">${stake}</span>
       )}
@@ -666,8 +692,8 @@ function SideSpot({ name, pay, edge, stake, result, onClick, disabled }: { name:
       className={`relative flex flex-col items-start rounded-lg border ${border} bg-black/20 p-2 text-left transition-all hover:bg-black/35 disabled:cursor-default`}
     >
       <span className="text-[12px] font-semibold text-white/80">{name}</span>
-      <span className="tnum text-[10px] text-white/40">{pay}</span>
-      {edge != null && <span className="tnum text-[9px] text-white/25">{edge}% edge</span>}
+      <span className="tnum text-[10px] text-white/55">{pay}</span>
+      {edge != null && <span className="tnum text-[9px] text-white/45">{edge}% edge</span>}
       {stake > 0 && <span className="tnum absolute right-1.5 top-1.5 rounded-full bg-brass px-1.5 py-0.5 text-[10px] font-bold text-charcoal">${stake}</span>}
       {settled && (
         <span className={`tnum mt-1 text-[11px] font-bold ${result!.won ? 'text-tie-green' : 'text-banker-red'}`}>
