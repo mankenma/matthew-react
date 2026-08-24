@@ -195,6 +195,12 @@ export default function Links() {
             title="Baccarat Simulator"
             desc="An 8-deck punto banco trainer with player and dealer modes, squeeze reveals, and roadmaps."
           />
+          <LinkButton
+            href="/scrabble"
+            emoji="🔤"
+            title="Scrabble Scorekeeper"
+            desc="A two-player score tracker with tile values, premium squares, bingo bonus and end-game rack counts."
+          />
           {false && (
             <LinkButton 
               href="/synthjam"

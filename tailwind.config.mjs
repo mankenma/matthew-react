@@ -1,9 +1,9 @@
 /** @type {import('tailwindcss').Config} */
-// Tailwind is scoped to the baccarat game only — its stylesheet (and preflight
-// reset) is imported solely by src/pages/baccarat-simulator.astro, so the rest
-// of the site is unaffected.
+// Tailwind is scoped to the games under src/games — their stylesheets (and the
+// preflight reset) are imported only by the matching game pages, so the rest of
+// the site is unaffected.
 export default {
-  content: ['./src/games/baccarat/**/*.{ts,tsx}'],
+  content: ['./src/games/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
